@@ -15,12 +15,12 @@ const form = ref({
   ]
 })
 
-const domainOptions = [
+const domainOptions = ref([
   'ด้านความรู้ (Knowledge)',
   'ด้านทักษะ (Skill)',
   'ด้านทัศนคติ (Attitude)',
   'ด้านสมรรถนะ (Competency)'
-]
+])
 
 // ----- ส่วนจำลองระบบ AI สำหรับ "วัตถุประสงค์ของหลักสูตร" -----
 const isGeneratingObj = ref(false)
@@ -173,7 +173,7 @@ const removeClo = (index: number) => {
                     <UInput v-model="plo.code" placeholder="เช่น PLO1" class="w-full bg-white" />
                   </UFormField>
                   <UFormField label="ด้าน" :ui="{ label: 'text-black text-sm font-bold' }">
-                    <USelectMenu v-model="plo.domain" :options="domainOptions" :searchable="false" class="w-full bg-white" />
+                    <UInputMenu v-model="plo.domain" :items="domainOptions" :searchable="false" class="w-full bg-white" />
                   </UFormField>
                 </div>
                 <UFormField label="ผลลัพธ์การเรียนรู้" :ui="{ label: 'text-black text-sm font-bold' }">
