@@ -79,17 +79,19 @@ const removeClo = (index: number) => {
             องค์ประกอบที่ 2: ปรัชญา วัตถุประสงค์ ผลลัพธ์การเรียนรู้
           </p>
         </template>
-
+          <!-- ❗❗❗ ✅= ไม่ใช้ AI | ❌= ใช้ AI ❗❗❗-->
         <div class="space-y-6">
+          <!-- ✅ ปรัชญาของหลักสูตร ไม่ใช้ AI ผู้รับผิดชอบ หัวหน้าภาควิชา บันทึกลงdbเลย ตารางProgram ต้องเพิ่มคอลัมน์ philosophyมั้ง-->
           <UFormField label="ปรัชญาของหลักสูตร *" :ui="{ label: 'text-black font-bold text-base' }">
             <UTextarea v-model="form.philosophy" placeholder="ระบุปรัชญาของหลักสูตร" :rows="3" class="w-full" :ui="{ base: 'bg-gray-50' }" />
           </UFormField>
-
+          <!-- ❌  ความสำคัญของหลักสูตร ใช้ AI+อาจารย์ ตารางProgram ต้องเพิ่มคอลัมน์ importanceมั้ง (AI อ่านข่าว/งานวิจัย → ร่างข้อความ (ชื่อหลักสูตร/รายวิชา/PEO))-->
           <UFormField label="ความสำคัญของหลักสูตร" :ui="{ label: 'text-black font-bold text-base' }">
             <UTextarea v-model="form.importance" placeholder="ระบุความสำคัญและเหตุผลในการจัดทำหลักสูตร" :rows="3" class="w-full" :ui="{ base: 'bg-gray-50' }" />
           </UFormField>
 
           <!-- ================= ส่วนของวัตถุประสงค์ + ระบบ AI ================= -->
+          <!-- ❌  วัตถุประสงค์ของหลักสูตร(PEOs)  ใช้ AI+อาจารย์ ตาราง PEO peo_code(รหัส PEO) description_th(ข้อความ) (AI ร่าง PEO จาก PLO + บริบทสาขา)-->
           <div class="space-y-3">
             <UFormField label="วัตถุประสงค์ของหลักสูตร" :ui="{ label: 'text-black font-bold text-base' }">
               <UTextarea v-model="form.objectives" placeholder="ระบุวัตถุประสงค์ของหลักสูตร" :rows="3" class="w-full" :ui="{ base: 'bg-gray-50' }" />
@@ -139,11 +141,12 @@ const removeClo = (index: number) => {
             </UCard>
           </div>
           <!-- ========================================================= -->
-
+          <!-- ❌  จุดเด่นเฉพาะของหลักสูตร  ผู้รับผิดชอบ หัวหน้าภาควิชา ใช้ AIบางส่วน ตาราง Program ต้องเพิ่มคอลัมน์ uniquenessมั้ง (AI เสนอแนะจากบริบทหลักสูตร)-->
           <UFormField label="จุดเด่นเฉพาะของหลักสูตร" :ui="{ label: 'text-black font-bold text-base' }">
             <UTextarea v-model="form.uniqueness" placeholder="ระบุจุดเด่นที่โดดเด่นของหลักสูตร" :rows="3" class="w-full" :ui="{ base: 'bg-gray-50' }" />
           </UFormField>
 
+          <!-- ❌  อาชีพที่สามารถประกอบได้หลังสำเร็จการศึกษา ใช้ AI+อาจารย์ ตาราง Program ต้องเพิ่มคอลัมน์ career_opportunitiesมั้ง (AI วิเคราะห์หลังหลักสูตรเสร็จ)-->
           <UFormField label="อาชีพที่สามารถประกอบได้หลังสำเร็จการศึกษา" :ui="{ label: 'text-black font-bold text-base' }">
             <UTextarea v-model="form.careers" placeholder="ระบุอาชีพที่สามารถประกอบได้ เช่น วิศวกร นักวิจัย ฯลฯ" :rows="3" class="w-full" :ui="{ base: 'bg-gray-50' }" />
           </UFormField>
@@ -151,6 +154,7 @@ const removeClo = (index: number) => {
           <UDivider class="my-8" />
 
           <!-- ส่วน PROGRAM LEARNING OUTCOMES (PLOS) -->
+          <!-- ❌  ผลลัพธ์การเรียนรู้ที่คาดหวังของหลักสูตร ใช้ AI+อาจารย์ ตาราง PLO plo_code(รหัส PLO) plo_type(ด้าน เช่น ด้านความรู้) description_th(ผลลัพธ์) (AI วิเคราะห์และเสนอ PLO จาก TQF)-->
           <div>
             <p class="text-black font-bold text-base mb-1 uppercase tracking-wide flex items-center gap-4">
               PROGRAM LEARNING OUTCOMES (PLOS)
@@ -190,6 +194,7 @@ const removeClo = (index: number) => {
           <UDivider class="my-8" />
 
           <!-- ส่วน COURSE LEARNING OUTCOMES (CLOS) -->
+          <!-- ❌⭕อันนี้ไม่รู้ในexcelเป็นYLO แต่ใน mockup html เป็น CLO (❗อย่าลืมเตียนไห้ถามไอจินด้วย❗)-->
           <div>
             <p class="text-black font-bold text-base mb-1 uppercase tracking-wide flex items-center gap-4">
                COURSE LEARNING OUTCOMES (CLOS) ตัวอย่าง
