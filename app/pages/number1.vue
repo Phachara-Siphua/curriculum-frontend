@@ -1,10 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+const route = useRoute()
 const router = useRouter()
 
+// ================= State ข้อมูลฟอร์มหน้า 1 =================
 const form = ref({
-  programCode: '', nameTh: '', nameEn: '', degreeTh: '', degreeAbbrTh: '', degreeEn: '', degreeAbbrEn: '',
-  major: '', durationYears: null, programCategory: '', language: '', admission: '', cooperation: '', openYear: '', approvalDetails: ''
+  id: null as string | number | null, // สำหรับเก็บ program_id (PK ของตาราง PROGRAM)
+  programCode: '', 
+  nameTh: '', 
+  nameEn: '', 
+  degreeTh: '', 
+  degreeAbbrTh: '', 
+  degreeEn: '', 
+  degreeAbbrEn: '',
+  major: '', 
+  durationYears: null as number | null, 
+  programCategory: '', 
+  language: '', 
+  admission: '', 
+  openYear: '', 
+  approvalDetails: ''
 })
 
 const programTypeItems = ['หลักสูตรใหม่', 'หลักสูตรปรับปรุง']
@@ -14,24 +29,36 @@ const programFormatValue = ref('หลักสูตรระดับปริ
 const degreeGrantItems = ['ให้ปริญญาเพียงสาขาวิชาเดียว', 'ให้ปริญญาร่วมกับสถาบันอื่น']
 const degreeGrantValue = ref('ให้ปริญญาเพียงสาขาวิชาเดียว')
 
+// 💾 เมื่อหน้าเว็บโหลด ให้ดึงข้อมูลมาแสดง ถ้ามี id แนบมากับ URL
+onMounted(() => {
+  if (route.query.id) {
+    form.value.id = route.query.id as string
+    // [Backend Task]: ยิง API GET /programs/{id} เพื่อดึงข้อมูลมาแสดง
+  }
+})
+
 // ================= ระบบบันทึกข้อมูล (Save System) =================
 const isSavingDraft = ref(false)
 const isSavingNext = ref(false)
 
 const saveDraft = async () => {
   isSavingDraft.value = true
-  // 💾 DB: ให้ Backend ยิง API บันทึกข้อมูลหน้า 1 ลงตาราง Program โดยตั้ง status = 'draft'
+  // [Backend Task]: ยิง API POST (ถ้า id=null) หรือ PUT (ถ้ามี id) ไปอัปเดตตาราง PROGRAM (status = 'draft')
   await new Promise(r => setTimeout(r, 1000))
+  if (!form.value.id) form.value.id = 1 // สมมติว่าได้ ID จาก Backend กลับมา
   isSavingDraft.value = false
-  alert('บันทึกฉบับร่างเรียบร้อยแล้ว')
+  alert(`บันทึกฉบับร่างเรียบร้อยแล้ว (Program ID: ${form.value.id})`)
 }
 
 const saveAndNext = async () => {
   isSavingNext.value = true
-  // 💾 DB: ให้ Backend ยิง API บันทึกข้อมูลหน้า 1 
+  // [Backend Task]: ยิง API บันทึกข้อมูลตาราง PROGRAM
   await new Promise(r => setTimeout(r, 1000))
+  if (!form.value.id) form.value.id = 1 // สมมติว่าเซฟแล้วได้ ID กลับมา
   isSavingNext.value = false
-  router.push('/number2') // เปลี่ยนไปหน้า 2
+  
+  // แนบ id ข้ามไปหน้า 2 
+  router.push({ path: '/number2', query: { id: form.value.id } })
 }
 // =============================================================
 </script>
@@ -47,22 +74,20 @@ const saveAndNext = async () => {
         </div>
 
         <div class="p-6 md:p-8 space-y-8">
-          <!-- ❗❗❗ ✅= ไม่ใช้ AI | ❌= ใช้ AI | ❓= ไม่แน่ใจ ❗❗❗ -->
+          <!-- ❗❗❗ คอมเมนต์อ้างอิงตาม ER Diagram (image_ed9000.jpg) ❗❗❗ -->
 
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 space-y-4 shadow-sm">
             <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block m-0">1. รหัสและชื่อหลักสูตร</p>
             <div class="space-y-4">
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ program_code) -->
+              <!-- ✅ DB: ตาราง PROGRAM (program_code) -->
               <UFormField label="รหัสหลักสูตร" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.programCode" class="w-full bg-white" placeholder="รหัสหลักสูตร" />
               </UFormField>
-
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ name_th) -->
+              <!-- ✅ DB: ตาราง PROGRAM (name_th) -->
               <UFormField label="ชื่อหลักสูตร (ภาษาไทย)" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.nameTh" class="w-full bg-white" placeholder="ชื่อเต็มภาษาไทย" />
               </UFormField>
-
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ name_en) -->
+              <!-- ✅ DB: ตาราง PROGRAM (name_en) -->
               <UFormField label="Program Name (English)" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.nameEn" class="w-full bg-white" placeholder="Full program name in English" />
               </UFormField>
@@ -72,22 +97,19 @@ const saveAndNext = async () => {
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
             <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-4 m-0">2. ชื่อปริญญาและสาขาวิชา</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ degree_name_th) -->
+              <!-- ✅ DB: ตาราง PROGRAM (degree_name_th) -->
               <UFormField label="ชื่อเต็ม (ภาษาไทย)" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.degreeTh" class="w-full bg-white" placeholder="เช่น วิศวกรรมศาสตรบัณฑิต (...)" />
               </UFormField>
-
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ degree_abbr_th ในตาราง Program -->
+              <!-- ✅ DB: ตาราง PROGRAM (degree_abbr_th) -->
               <UFormField label="ชื่อย่อ (ภาษาไทย)" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.degreeAbbrTh" class="w-full bg-white" placeholder="เช่น วศ.บ. (...)" />
               </UFormField>
-
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ degree_name_en) -->
+              <!-- ✅ DB: ตาราง PROGRAM (degree_name_en) -->
               <UFormField label="Full Name (English)" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.degreeEn" class="w-full bg-white" placeholder="e.g. Bachelor of Engineering (...)" />
               </UFormField>
-
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ degree_abbr_en ในตาราง Program -->
+              <!-- ✅ DB: ตาราง PROGRAM (degree_abbr_en) -->
               <UFormField label="Abbreviation (English)" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.degreeAbbrEn" class="w-full bg-white" placeholder="e.g. B.Eng. (...)" />
               </UFormField>
@@ -96,7 +118,7 @@ const saveAndNext = async () => {
 
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
             <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-4 m-0">3. วิชาเอก</p>
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ major ในตาราง Program -->
+            <!-- ✅ DB: ตาราง PROGRAM (major) -->
             <UFormField label="วิชาเอก (ถ้ามี)" :ui="{ label: 'text-gray-800 font-bold' }">
               <UInput v-model="form.major" class="w-full bg-white" placeholder="ระบุวิชาเอก หรือ 'ไม่มี'" />
             </UFormField>
@@ -105,33 +127,28 @@ const saveAndNext = async () => {
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 space-y-4 shadow-sm">
             <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-2 m-0">4. รูปแบบของหลักสูตร</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ program_format ในตาราง Program -->
+              <!-- ✅ DB: ตาราง PROGRAM (program_format) -->
               <UFormField label="4.1 รูปแบบ" :ui="{ label: 'text-gray-800 font-bold' }">
                 <USelectMenu v-model="programFormatValue" :items="programFormatItems" class="w-full bg-white" />
               </UFormField>
-
-              <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ duration_years) -->
+              <!-- ✅ DB: ตาราง PROGRAM (duration_years) -->
               <UFormField label="ระยะเวลา (ปี)" :ui="{ label: 'text-gray-800 font-bold' }">
                 <UInput v-model="form.durationYears" class="w-full bg-white" type="number" placeholder="4" />
               </UFormField>
             </div>
-
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ program_category ในตาราง Program -->
+            <!-- ✅ DB: ตาราง PROGRAM (program_category) *ต้องสร้างเพิ่ม -->
             <UFormField label="4.2 ประเภทหลักสูตร" :ui="{ label: 'text-gray-800 font-bold' }">
               <UInput v-model="form.programCategory" class="w-full bg-white" placeholder="เช่น หลักสูตรปริญญาตรีทางวิชาการ" />
             </UFormField>
-
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ language ในตาราง Program -->
+            <!-- ✅ DB: ตาราง PROGRAM (language) -->
             <UFormField label="4.3 ภาษาที่ใช้" :ui="{ label: 'text-gray-800 font-bold' }">
               <UInput v-model="form.language" class="w-full bg-white" placeholder="เช่น ภาษาไทยและภาษาอังกฤษ" />
             </UFormField>
-
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ admission_req ในตาราง Program -->
+            <!-- ✅ DB: ตาราง PROGRAM_ADMISSION (selection_criteria หรือตารางอื่นที่เหมาะสม) -->
             <UFormField label="4.4 การรับเข้าศึกษา" :ui="{ label: 'text-gray-800 font-bold' }">
               <UInput v-model="form.admission" class="w-full bg-white" placeholder="เช่น รับนักศึกษาไทยและต่างประเทศ..." />
             </UFormField>
-
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ degree_granting ในตาราง Program -->
+            <!-- ✅ DB: ตาราง PROGRAM (degree_granting) -->
             <UFormField label="4.6 การให้ปริญญาแก่ผู้สำเร็จการศึกษา" :ui="{ label: 'text-gray-800 font-bold' }">
               <USelectMenu v-model="degreeGrantValue" :items="degreeGrantItems" class="w-full bg-white" />
             </UFormField>
@@ -139,18 +156,15 @@ const saveAndNext = async () => {
 
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 space-y-4 shadow-sm">
             <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-2 m-0">5. สถานภาพและการอนุมัติ</p>
-            
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ status) -->
+            <!-- ✅ DB: ตาราง PROGRAM (program_type) -->
             <UFormField label="ประเภทหลักสูตร" :ui="{ label: 'text-gray-800 font-bold' }">
               <USelectMenu v-model="programTypeValue" :items="programTypeItems" class="w-full bg-white" />
             </UFormField>
-
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ❓ เพิ่มคอลัมน์ open_year ในตาราง Program -->
+            <!-- ✅ DB: ตาราง PROGRAM (open_year) -->
             <UFormField label="เปิดสอนปีการศึกษา" :ui="{ label: 'text-gray-800 font-bold' }">
               <UInput v-model="form.openYear" class="w-full bg-white" placeholder="เช่น ภาคการศึกษาที่ 1 ปีการศึกษา 2568" />
             </UFormField>
-
-            <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ Approved_date หรือ แยกตาราง Approval_History) -->
+            <!-- ✅ DB: *ต้องเพิ่มคอลัมน์ approval_details ใน PROGRAM -->
             <UFormField label="รายละเอียดการผ่านการพิจารณา" :ui="{ label: 'text-gray-800 font-bold' }">
               <UTextarea v-model="form.approvalDetails" class="w-full bg-white" :rows="4" placeholder="ระบุวาระ วันเดือนปีที่ผ่านการพิจารณา" />
             </UFormField>

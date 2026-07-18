@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { VueDraggable } from 'vue-draggable-plus'
+import { ref, onMounted, computed } from 'vue'
+
+const route = useRoute()
 const router = useRouter()
+
+// ================= State ข้อมูลฟอร์มหน้า 3 =================
+const programId = ref<string | null>(null) // รับ ID จากหน้า 2
+
+onMounted(() => {
+  if (route.query.id) {
+    programId.value = route.query.id as string
+    // [Backend Task]: ยิง API GET /programs/{id}/courses เพื่อดึงโครงสร้างและ Mapping
+  }
+})
 
 const categories = ref([{ name: 'หมวดวิชาศึกษาทั่วไป', credits: 30 }, { name: 'หมวดวิชาเฉพาะ', credits: 96 }, { name: 'หมวดวิชาเลือกเสรี', credits: 6 }])
 function addCategory() { categories.value.push({ name: '', credits: 0 }) }
@@ -24,7 +37,7 @@ const isSavingNext = ref(false)
 
 const saveDraft = async () => {
   isSavingDraft.value = true
-  // 💾 DB: ให้ Backend ยิง API บันทึกข้อมูลโครงสร้างหลักสูตรและ Mapping ลงตาราง Program และ Program_Course
+  // 💾 DB: บันทึกข้อมูลลง PROGRAM (total_credits), COURSE_CATEGORY และ PROGRAM_COURSE อิงตาม programId.value
   await new Promise(r => setTimeout(r, 1000))
   isSavingDraft.value = false
   alert('บันทึกฉบับร่างเรียบร้อยแล้ว')
@@ -32,10 +45,10 @@ const saveDraft = async () => {
 
 const saveAndNext = async () => {
   isSavingNext.value = true
-  // 💾 DB: ยิง API บันทึกข้อมูลหน้า 3 และเตรียมไปหน้าถัดไป
+  // 💾 DB: บันทึกข้อมูลหน้า 3 ลง Database
   await new Promise(r => setTimeout(r, 1000))
   isSavingNext.value = false
-  router.push('/number4') // เปลี่ยนไปหน้า 4
+  router.push({ path: '/number4', query: { id: programId.value } })
 }
 // =============================================================
 </script>
@@ -51,19 +64,16 @@ const saveAndNext = async () => {
         </div>
 
         <div class="p-6 md:p-8 space-y-8">
-          <!-- ❗❗❗ ✅= ไม่ใช้ AI | ❌= ใช้ AI | ❓= ไม่แน่ใจ ❗❗❗-->
+          <!-- ❗❗❗ คอมเมนต์อ้างอิงตาม ER Diagram (image_ed9000.jpg) ❗❗❗ -->
 
-          <!-- 1. จำนวนหน่วยกิตรวม -->
-          <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Program (คอลัมน์ total_credits) -->
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
             <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-4 m-0">1. จำนวนหน่วยกิตรวมตลอดหลักสูตร</p>
+            <!-- ✅ DB: ตาราง PROGRAM (total_credits) -->
             <UFormField label="จำนวนหน่วยกิตรวม" :ui="{ label: 'text-gray-800 font-bold' }">
               <UInput v-model="totalCreditsInput" type="number" class="w-full md:w-1/3 bg-white" placeholder="เช่น 138" />
             </UFormField>
           </div>
 
-          <!-- 2. โครงสร้างหลักสูตร -->
-          <!-- ✅ ไม่ใช้ AI | 💾 DB: ตาราง Course_category (category_id, name_th, required_credits) -->
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
             <div class="flex justify-between items-center mb-4">
               <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 m-0">2. โครงสร้างหลักสูตร</p>
@@ -73,14 +83,15 @@ const saveAndNext = async () => {
             </div>
             
             <div v-for="(cat, i) in categories" :key="i" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 items-end bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+              <!-- ✅ DB: ตาราง COURSE_CATEGORY (program_id, name_th) -->
               <UFormField label="หมวดวิชา" :ui="{ label: 'text-gray-700 font-bold text-sm' }">
                 <UInput v-model="cat.name" class="w-full bg-white" placeholder="เช่น หมวดวิชาศึกษาทั่วไป" />
               </UFormField>
               <div class="flex gap-3 items-end">
+                <!-- ✅ DB: ตาราง COURSE_CATEGORY (required_credits) -->
                 <UFormField label="จำนวนหน่วยกิต" :ui="{ label: 'text-gray-700 font-bold text-sm' }" class="flex-1">
                   <UInput v-model.number="cat.credits" type="number" class="w-full bg-white" placeholder="30" />
                 </UFormField>
-                <!-- เปลี่ยนสีเป็น neutral เพื่อลบขีดแดง และใช้สไตล์สีแดงจากคลาสแทน -->
                 <UButton icon="i-heroicons-trash" color="neutral" variant="soft" class="mb-0.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200" @click="removeCategory(i)" />
               </div>
             </div>
@@ -91,22 +102,21 @@ const saveAndNext = async () => {
             </div>
           </div>
 
-          <!-- 3. แผนการศึกษา -->
-          <!-- ❌ ใช้ AI ช่วยเขียนคำอธิบายรายวิชา | 💾 DB: ตาราง Program_Course (การจัดแผน), Course (ข้อมูลวิชา) -->
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
             <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 border-b-2 border-[#d8d2c6] pb-3">
               <div class="flex items-center gap-2">
                 <p class="text-[#1a2744] font-bold text-lg m-0">3. แผนการศึกษา (Curriculum Mapping)</p>
-                <UBadge color="warning" variant="soft" class="font-bold rounded-lg bg-yellow-100 text-yellow-700"><UIcon name="i-heroicons-sparkles" class="mr-1"/> AI Assisted</UBadge>
+                <UBadge variant="soft" class="font-bold rounded-lg bg-yellow-100 text-yellow-700"><UIcon name="i-heroicons-sparkles" class="mr-1"/> AI Assisted</UBadge>
               </div>
               <p class="text-gray-500 text-sm mt-2 md:mt-0 flex items-center gap-1 m-0">
                 <UIcon name="i-heroicons-information-circle" class="w-5 h-5"/> ลากวางเพื่อย้ายวิชาระหว่างภาค
               </p>
             </div>
 
+            <!-- ❌ DB: ตาราง PROGRAM_COURSE เชื่อมกับ PROGRAM_SEMESTER และ COURSE -->
             <div class="overflow-x-auto pb-4 custom-scrollbar w-full">
               <div class="flex gap-4 min-w-max px-2">
-                <div v-for="sem in semesters" :key="sem.id" class="flex flex-col w-56 shadow-sm">
+                <div v-for="sem in semesters" :key="sem.id" class="flex flex-col w-64 shadow-sm">
                   <div class="bg-[#1a2744] text-white text-center py-2 px-1 rounded-t-lg">
                     <p class="text-sm font-bold m-0">ปีที่ {{ sem.year }}</p>
                     <p class="text-xs text-[#e8c96a] m-0">ภาคเรียนที่ {{ sem.term }}</p>
@@ -116,13 +126,11 @@ const saveAndNext = async () => {
                       <button class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center text-[10px] z-10 shadow-sm" @click.stop="removeSubject(sem.id, subject.id)">✕</button>
                       <p class="font-mono font-bold text-blue-900 text-xs mb-1 m-0">{{ subject.code }}</p>
                       <p class="font-medium leading-tight line-clamp-2 text-gray-800 text-xs mb-2 m-0">{{ subject.nameEn }}</p>
-                      <!-- เปลี่ยนเป็น color="neutral" เพื่อแก้ปัญหาขีดแดง -->
                       <UBadge color="neutral" variant="solid" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 border border-gray-200">{{ subject.credits }}</UBadge>
                     </div>
                   </VueDraggable>
                   <div class="bg-gray-50 border border-t-0 border-gray-200 rounded-b-lg px-3 py-2 flex items-center justify-between">
                     <span class="text-xs text-gray-600 font-bold m-0">{{ semCredits(sem) }} <span class="font-normal text-[10px]">หน่วยกิต</span></span>
-                    <!-- เปลี่ยนเป็น color="neutral" เพื่อแก้ปัญหาขีดแดง -->
                     <UButton icon="i-heroicons-plus" size="sm" color="neutral" variant="soft" class="rounded-full bg-white shadow-sm hover:bg-gray-100 border border-gray-200" @click="openSearch(sem.id)" />
                   </div>
                 </div>
@@ -130,9 +138,9 @@ const saveAndNext = async () => {
             </div>
           </div>
 
-          <!-- ปุ่ม Action บันทึกข้อมูล -->
+          <!-- ปุ่ม Action -->
           <div class="pt-6 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 mt-8">
-            <UButton to="/number2" variant="ghost" class="text-gray-500 hover:text-[#1a2744] px-6 py-3 text-base bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 w-full md:w-auto text-center justify-center">← ย้อนกลับ</UButton>
+            <UButton :to="`/number2?id=${programId || ''}`" variant="ghost" class="text-gray-500 hover:text-[#1a2744] px-6 py-3 text-base bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 w-full md:w-auto text-center justify-center">← ย้อนกลับ</UButton>
             <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
               <UButton color="neutral" variant="outline" class="px-6 py-3 text-base font-bold rounded-xl border-gray-300 hover:bg-gray-50 bg-white justify-center" :loading="isSavingDraft" @click="saveDraft()">
                 <UIcon name="i-heroicons-document-text" class="mr-2 w-5 h-5" /> บันทึกฉบับร่าง
@@ -142,6 +150,7 @@ const saveAndNext = async () => {
               </UButton>
             </div>
           </div>
+
         </div>
       </div>
     </UForm>
@@ -154,14 +163,12 @@ const saveAndNext = async () => {
       <div class="max-h-96 overflow-y-auto space-y-2 pr-1">
         <div v-for="subject in filteredSubjects" :key="subject.id" class="flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-all" @click="addSubjectToSem(subject)">
           <div class="flex items-center gap-3">
-            <!-- เปลี่ยนเป็น color="neutral" เพื่อแก้ปัญหาขีดแดง -->
             <UBadge :label="subject.code" color="neutral" :class="subject.isHighlight ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'" variant="soft" size="sm" />
             <div>
               <p class="font-bold text-sm text-gray-900 m-0">{{ subject.nameEn }}</p>
               <p class="text-xs text-gray-500 m-0">{{ subject.nameTh }}</p>
             </div>
           </div>
-          <!-- เปลี่ยนเป็น color="neutral" เพื่อแก้ปัญหาขีดแดง -->
           <UBadge :label="subject.credits" color="neutral" variant="solid" size="sm" class="bg-gray-100 text-gray-700 border border-gray-200" />
         </div>
         <div v-if="filteredSubjects.length === 0" class="text-center py-10 text-gray-400">

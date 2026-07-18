@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+const route = useRoute()
 const router = useRouter()
 
+// ================= State ข้อมูลฟอร์มหน้า 2 =================
 const form = ref({ 
+  id: null as string | number | null,
   philosophy: '', 
   importance: '', 
   objectives: '', 
@@ -10,6 +13,14 @@ const form = ref({
   careers: '', 
   plos: [{ code: '', domain: 'ด้านความรู้ (Knowledge)', description: '' }], 
   ylos: [{ year: '1', description: '' }] 
+})
+
+// 💾 เมื่อหน้าเว็บโหลด ให้เช็ก id เพื่อดึงข้อมูลเดิมมาโชว์
+onMounted(() => {
+  if (route.query.id) {
+    form.value.id = route.query.id as string
+    // [Backend Task]: ยิง API GET /programs/{id}/details เพื่อดึงข้อมูล PROGRAM, PLO, YLO มาแสดง
+  }
 })
 
 const domainOptions = ['ด้านความรู้ (Knowledge)', 'ด้านทักษะ (Skill)', 'ด้านทัศนคติ (Attitude)', 'ด้านสมรรถนะ (Competency)']
@@ -41,13 +52,11 @@ const genPlo = async () => { isGenPlo.value = true; await new Promise(r => setTi
 const savePlo = () => { form.value.plos = JSON.parse(JSON.stringify(aiPloData.value)); showAiPlo.value = false }
 const closeAiPlo = () => { showAiPlo.value = false }
 
-// ระบบ AI สำหรับ YLO (แทน CLO)
+// ระบบ AI สำหรับ YLO
 const isGenYlo = ref(false); const showAiYlo = ref(false);
 const aiYloData = ref([
   { year: '1', description: 'สามารถอธิบายหลักการพื้นฐานทางวิศวกรรมและการทำงานของระบบได้' },
-  { year: '2', description: 'สามารถประยุกต์ใช้เครื่องมือและเทคโนโลยีในการแก้ปัญหาเบื้องต้นได้' },
-  { year: '3', description: 'สามารถวิเคราะห์และออกแบบระบบงานในภาคอุตสาหกรรมได้' },
-  { year: '4', description: 'สามารถสร้างสรรค์นวัตกรรมและโครงงานที่นำไปใช้งานได้จริง' }
+  { year: '2', description: 'สามารถประยุกต์ใช้เครื่องมือและเทคโนโลยีในการแก้ปัญหาเบื้องต้นได้' }
 ])
 const genYlo = async () => { isGenYlo.value = true; await new Promise(r => setTimeout(r, 1500)); isGenYlo.value = false; showAiYlo.value = true }
 const saveYlo = () => { form.value.ylos = JSON.parse(JSON.stringify(aiYloData.value)); showAiYlo.value = false }
@@ -57,7 +66,6 @@ const closeAiYlo = () => { showAiYlo.value = false }
 const addPlo = () => { form.value.plos.push({ code: '', domain: 'ด้านความรู้ (Knowledge)', description: '' }) }
 const removePlo = (index: number) => { form.value.plos.splice(index, 1) }
 
-// ฟังก์ชัน Add/Remove สำหรับ YLO
 const addYlo = () => { form.value.ylos.push({ year: '', description: '' }) }
 const removeYlo = (index: number) => { form.value.ylos.splice(index, 1) }
 
@@ -67,7 +75,7 @@ const isSavingNext = ref(false)
 
 const saveDraft = async () => {
   isSavingDraft.value = true
-  // 💾 DB: ให้ Backend ยิง API บันทึกข้อมูลหน้า 2 ลงตาราง Program, PEO, PLO, YLO (ตั้ง status = 'draft')
+  // 💾 DB: อัปเดตข้อมูลตาราง PROGRAM, PLO, YLO
   await new Promise(r => setTimeout(r, 1000))
   isSavingDraft.value = false
   alert('บันทึกฉบับร่างเรียบร้อยแล้ว')
@@ -75,10 +83,12 @@ const saveDraft = async () => {
 
 const saveAndNext = async () => {
   isSavingNext.value = true
-  // 💾 DB: ให้ Backend ยิง API บันทึกข้อมูลหน้า 2
+  // 💾 DB: อัปเดตข้อมูลหน้า 2
   await new Promise(r => setTimeout(r, 1000))
   isSavingNext.value = false
-  router.push('/number3') // เปลี่ยนไปหน้า 3
+
+  // แนบ id ไปหน้า 3 ต่อ 
+  router.push({ path: '/number3', query: { id: form.value.id } })
 }
 // =============================================================
 </script>
@@ -94,18 +104,18 @@ const saveAndNext = async () => {
 
         <div class="p-6 md:p-8 space-y-8">
 
-          <!-- ❗❗❗ ✅= ไม่ใช้ AI | ❌= ใช้ AI | ❓= ไม่แน่ใจ ❗❗❗ -->
+          <!-- ❗❗❗ คอมเมนต์อ้างอิงตาม ER Diagram (image_ed9000.jpg) ❗❗❗ -->
 
           <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-100 space-y-8 shadow-sm">
             
-            <!-- ✅ ปรัชญาของหลักสูตร ไม่ใช้ AI | 💾 DB: ❓ ไม่แน่ใจ (ต้องเพิ่มคอลัมน์ philosophy ในตาราง Program) -->
+            <!-- ✅ DB: ตาราง PROGRAM (philosophy) -->
             <UFormField label="ปรัชญาของหลักสูตร *" :ui="{ label: 'text-gray-800 font-bold' }">
               <UTextarea v-model="form.philosophy" placeholder="ระบุปรัชญาของหลักสูตร" :rows="3" class="w-full bg-white" />
             </UFormField>
 
             <UDivider />
 
-            <!-- ❌ ความสำคัญของหลักสูตร ใช้ AI ช่วยร่างจากข่าว/งานวิจัย | 💾 DB: ❓ ไม่แน่ใจ (ต้องเพิ่มคอลัมน์ importance ในตาราง Program) -->
+            <!-- ❌ DB: ตาราง PROGRAM (importance) -->
             <div class="p-5 border border-[#c8a84b] rounded-xl bg-white shadow-sm space-y-4">
               <div class="flex justify-between items-center mb-2">
                 <p class="text-gray-800 font-bold text-sm m-0">ความสำคัญของหลักสูตร</p>
@@ -123,7 +133,7 @@ const saveAndNext = async () => {
               </div>
             </div>
 
-            <!-- ❌ วัตถุประสงค์ (PEOs) ใช้ AI ร่างจาก PLO + บริบท | 💾 DB: ตาราง PEO (peo_code, description_th) -->
+            <!-- ❌ DB: ตาราง PROGRAM (objectives) -->
             <div class="p-5 border border-[#c8a84b] rounded-xl bg-white shadow-sm space-y-4">
               <div class="flex justify-between items-center mb-2">
                 <p class="text-gray-800 font-bold text-sm m-0">วัตถุประสงค์ของหลักสูตร (PEOs)</p>
@@ -141,7 +151,7 @@ const saveAndNext = async () => {
               </div>
             </div>
 
-            <!-- ❌ จุดเด่นเฉพาะของหลักสูตร ใช้ AI ช่วยวิเคราะห์ | 💾 DB: ❓ ไม่แน่ใจ (ต้องเพิ่มคอลัมน์ uniqueness ในตาราง Program) -->
+            <!-- ❌ DB: ตาราง PROGRAM (uniqueness) -->
             <div class="p-5 border border-[#c8a84b] rounded-xl bg-white shadow-sm space-y-4">
               <div class="flex justify-between items-center mb-2">
                 <p class="text-gray-800 font-bold text-sm m-0">จุดเด่นเฉพาะของหลักสูตร</p>
@@ -159,7 +169,7 @@ const saveAndNext = async () => {
               </div>
             </div>
 
-            <!-- ❌ อาชีพหลังสำเร็จการศึกษา ใช้ AI แนะนำ | 💾 DB: ❓ ไม่แน่ใจ (ต้องเพิ่มคอลัมน์ career_opportunities ในตาราง Program) -->
+            <!-- ❌ DB: ตาราง PROGRAM (careers) -->
             <div class="p-5 border border-[#c8a84b] rounded-xl bg-white shadow-sm space-y-4">
               <div class="flex justify-between items-center mb-2">
                 <p class="text-gray-800 font-bold text-sm m-0">อาชีพที่สามารถประกอบได้หลังสำเร็จการศึกษา</p>
@@ -178,7 +188,7 @@ const saveAndNext = async () => {
             </div>
           </div>
 
-          <!-- ❌ PLO (ใช้ AI เสนอรายการจาก TQF) | 💾 DB: ตาราง PLO (plo_code, plo_type, description_th) -->
+          <!-- ❌ DB: ตาราง PLO (program_id, plo_code, domain(ถ้ามี), description_th) -->
           <div class="bg-[#faf8f4] p-6 rounded-xl border-2 border-[#c8a84b] shadow-sm">
             <div class="flex justify-between items-center border-b-2 border-[#d8d2c6] pb-3 mb-4">
               <div>
@@ -221,7 +231,7 @@ const saveAndNext = async () => {
             <UButton @click="addPlo()" variant="outline" icon="i-heroicons-plus" class="border border-[#1a2744] text-[#1a2744] bg-white hover:bg-gray-50">เพิ่ม PLO เอง</UButton>
           </div>
 
-          <!-- ❌ YLO (ใช้ AI ช่วยสร้างจากรายวิชา) | 💾 DB: ตาราง YLO (ต้องสร้างตารางเก็บ year, description) -->
+          <!-- ❌ DB: ตาราง YLO (program_id, year, description) -->
           <div class="bg-[#faf8f4] p-6 rounded-xl border-2 border-[#c8a84b] shadow-sm">
             <div class="flex justify-between items-center border-b-2 border-[#d8d2c6] pb-3 mb-4">
               <div>
@@ -263,9 +273,9 @@ const saveAndNext = async () => {
             <UButton @click="addYlo()" variant="outline" icon="i-heroicons-plus" class="border border-[#1a2744] text-[#1a2744] bg-white hover:bg-gray-50">เพิ่ม YLO เอง</UButton>
           </div>
 
-          <!-- ปุ่ม Action (เพิ่มปุ่ม Save Draft) -->
+          <!-- ปุ่ม Action (ย้อนกลับให้คง id ไว้ด้วย) -->
           <div class="pt-6 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 mt-8">
-            <UButton to="/number1" variant="ghost" class="text-gray-500 hover:text-[#1a2744] px-6 py-3 text-base bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 w-full md:w-auto text-center justify-center">← ย้อนกลับ</UButton>
+            <UButton :to="`/number1?id=${form.id || ''}`" variant="ghost" class="text-gray-500 hover:text-[#1a2744] px-6 py-3 text-base bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 w-full md:w-auto text-center justify-center">← ย้อนกลับ</UButton>
             <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
               <UButton color="neutral" variant="outline" class="px-6 py-3 text-base font-bold rounded-xl border-gray-300 hover:bg-gray-50 bg-white justify-center" :loading="isSavingDraft" @click="saveDraft()">
                 <UIcon name="i-heroicons-document-text" class="mr-2 w-5 h-5" /> บันทึกฉบับร่าง
