@@ -10,4 +10,6 @@
   }"
   title="Curiculum DocGen"
 />
+
+<LogoutButton />
 </template>
