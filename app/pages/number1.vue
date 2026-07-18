@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+const { createProgram, updateProgram, getProgram } = useProgramApi()
 const route = useRoute()
 const router = useRouter()
 
@@ -28,12 +29,62 @@ const programFormatItems = ['หลักสูตรระดับปริญ
 const programFormatValue = ref('หลักสูตรระดับปริญญาตรี')
 const degreeGrantItems = ['ให้ปริญญาเพียงสาขาวิชาเดียว', 'ให้ปริญญาร่วมกับสถาบันอื่น']
 const degreeGrantValue = ref('ให้ปริญญาเพียงสาขาวิชาเดียว')
+const errorMsg = ref('')
+
+function buildPayload(status: 'draft' | 'submitted' = 'draft') {
+  return {
+    program_code: form.value.programCode,
+    name_th: form.value.nameTh,
+    name_en: form.value.nameEn,
+    degree_name_th: form.value.degreeTh,
+    degree_abbr_th: form.value.degreeAbbrTh,
+    degree_name_en: form.value.degreeEn,
+    degree_abbr_en: form.value.degreeAbbrEn,
+    major: form.value.major,
+    duration_years: form.value.durationYears || null,
+    program_category: form.value.programCategory,
+    language: form.value.language,
+    admission_req: form.value.admission,
+    open_year: form.value.openYear,
+    approval_details: form.value.approvalDetails,
+    program_format: programFormatValue.value,
+    degree_granting: degreeGrantValue.value,
+    program_type: programTypeValue.value,
+    status,
+  }
+}
+
+function applyResponse(data: any) {
+  form.value.id = data.id
+  form.value.programCode = data.program_code ?? ''
+  form.value.nameTh = data.name_th ?? ''
+  form.value.nameEn = data.name_en ?? ''
+  form.value.degreeTh = data.degree_name_th ?? ''
+  form.value.degreeAbbrTh = data.degree_abbr_th ?? ''
+  form.value.degreeEn = data.degree_name_en ?? ''
+  form.value.degreeAbbrEn = data.degree_abbr_en ?? ''
+  form.value.major = data.major ?? ''
+  form.value.durationYears = data.duration_years ?? null
+  form.value.programCategory = data.program_category ?? ''
+  form.value.language = data.language ?? ''
+  form.value.admission = data.admission_req ?? ''
+  form.value.openYear = data.open_year ?? ''
+  form.value.approvalDetails = data.approval_details ?? ''
+  if (data.program_format) programFormatValue.value = data.program_format
+  if (data.degree_granting) degreeGrantValue.value = data.degree_granting
+  if (data.program_type) programTypeValue.value = data.program_type
+}
 
 // 💾 เมื่อหน้าเว็บโหลด ให้ดึงข้อมูลมาแสดง ถ้ามี id แนบมากับ URL
-onMounted(() => {
+onMounted(async () => {
   if (route.query.id) {
     form.value.id = route.query.id as string
-    // [Backend Task]: ยิง API GET /programs/{id} เพื่อดึงข้อมูลมาแสดง
+    try {
+      const data = await getProgram(form.value.id)
+      applyResponse(data)
+    } catch (err: any) {
+      errorMsg.value = err.data?.detail || 'ไม่พบข้อมูลหลักสูตรนี้'
+    }
   }
 })
 
@@ -43,22 +94,40 @@ const isSavingNext = ref(false)
 
 const saveDraft = async () => {
   isSavingDraft.value = true
-  // [Backend Task]: ยิง API POST (ถ้า id=null) หรือ PUT (ถ้ามี id) ไปอัปเดตตาราง PROGRAM (status = 'draft')
-  await new Promise(r => setTimeout(r, 1000))
-  if (!form.value.id) form.value.id = 1 // สมมติว่าได้ ID จาก Backend กลับมา
-  isSavingDraft.value = false
-  alert(`บันทึกฉบับร่างเรียบร้อยแล้ว (Program ID: ${form.value.id})`)
+  errorMsg.value = ''
+  try {
+    const payload = buildPayload('draft')
+    if (!form.value.id) {
+      const res = await createProgram(payload)
+      form.value.id = res.id
+    } else {
+      await updateProgram(form.value.id, payload)
+    }
+    alert(`บันทึกฉบับร่างเรียบร้อยแล้ว (Program ID: ${form.value.id})`)
+  } catch (err: any) {
+    errorMsg.value = err.data?.detail || 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingDraft.value = false
+  }
 }
 
 const saveAndNext = async () => {
   isSavingNext.value = true
-  // [Backend Task]: ยิง API บันทึกข้อมูลตาราง PROGRAM
-  await new Promise(r => setTimeout(r, 1000))
-  if (!form.value.id) form.value.id = 1 // สมมติว่าเซฟแล้วได้ ID กลับมา
-  isSavingNext.value = false
-  
-  // แนบ id ข้ามไปหน้า 2 
-  router.push({ path: '/number2', query: { id: form.value.id } })
+  errorMsg.value = ''
+  try {
+    const payload = buildPayload('draft')
+    if (!form.value.id) {
+      const res = await createProgram(payload)
+      form.value.id = res.id
+    } else {
+      await updateProgram(form.value.id, payload)
+    }
+    router.push({ path: '/number2', query: { id: form.value.id } })
+  } catch (err: any) {
+    errorMsg.value = err.data?.detail || 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingNext.value = false
+  }
 }
 // =============================================================
 </script>
@@ -169,7 +238,7 @@ const saveAndNext = async () => {
               <UTextarea v-model="form.approvalDetails" class="w-full bg-white" :rows="4" placeholder="ระบุวาระ วันเดือนปีที่ผ่านการพิจารณา" />
             </UFormField>
           </div>
-
+          <UAlert v-if="errorMsg" color="error" :title="errorMsg" class="mb-4" />
           <!-- ปุ่ม Action -->
           <div class="pt-6 border-t border-gray-200 flex justify-end gap-4 mt-8">
             <UButton color="neutral" variant="outline" class="px-6 py-3 text-base font-bold rounded-xl border-gray-300 hover:bg-gray-50 bg-white" :loading="isSavingDraft" @click="saveDraft()">
