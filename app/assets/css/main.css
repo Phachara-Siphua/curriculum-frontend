@@ -1,6 +1,42 @@
+@reference "tailwindcss";
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap');
 
 body {
-    background-color: #f9fafb;
+  font-family: 'Sarabun', sans-serif;
+  background-color: #F3EFE4;
+  color: #26241E;
+  -webkit-font-smoothing: antialiased;
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 8px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 4px; }
+
+@keyframes pulseSec { 
+  0% { background-color: #EEE0C6; } 
+  100% { background-color: transparent; } 
+}
+.pulse-bg { animation: pulseSec 1.2s ease; }
+
+/* 🌟 บังคับสไตล์ช่อง Input/Textarea ให้เหมือน Mockup (ขอบทอง) */
+input, textarea, select {
+  background-color: #FEFDFA !important;
+  border: 1px solid #E3DCC9 !important;
+  border-radius: 8px !important;
+  color: #26241E !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease-in-out;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  border-color: #A8793B !important;
+  box-shadow: 0 0 0 3px #EEE0C6 !important;
+}
+
+/* ซ่อน Ring ดั้งเดิมของ Nuxt UI */
+.ring-1, .focus\:ring-2 {
+  --tw-ring-shadow: 0 0 #0000 !important;
+  box-shadow: var(--tw-ring-shadow) !important;
 }

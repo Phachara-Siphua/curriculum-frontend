@@ -1,4 +1,4 @@
-<!-- pages/number6.vue -->
+<!-- pages/appendix/f.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
@@ -6,35 +6,36 @@ const route = useRoute()
 const router = useRouter()
 const programId = ref<string | null>(null)
 
-// รายชื่อหัวข้อในหมวดที่ 6
+// รายชื่อหัวข้อในภาคผนวก ฉ.
 const sectionTitles = [
-  "การเตรียมการสำหรับอาจารย์ใหม่",
-  "การพัฒนาทักษะการจัดการเรียนการสอน การวัดและการประเมินผล",
-  "การพัฒนาวิชาการและวิชาชีพด้านอื่น ๆ"
+  "สาระในการปรับปรุงแก้ไข",
+  "เหตุผลในการปรับปรุงแก้ไข",
+  "ตารางเปรียบเทียบหลักสูตรเดิมและหลักสูตรปรับปรุง"
 ]
 
 // ================= State ข้อมูลฟอร์ม =================
 const form = ref<any>({
   id: null,
-  // 6.1 (Textarea ทั่วไป)
-  s6_1: '',
-  // 6.2 (Dynamic List)
-  s6_2: [
-    'ปฐมนิเทศอาจารย์ใหม่ด้านเทคนิคการสอนและการวัดประเมินผล',
-    'ส่งเสริมให้อาจารย์เข้ารับการอบรมด้านการจัดการเรียนรู้ที่เน้นผู้เรียนเป็นศูนย์กลาง (OBE)'
-  ],
-  // 6.3 (Dynamic List)
-  s6_3: [
-    'ส่งเสริมให้อาจารย์เข้ารับการอบรม/ประชุมวิชาการทั้งในและต่างประเทศ',
-    'สนับสนุนทุนการศึกษาต่อและทำวิจัยเพื่อพัฒนาผลงานทางวิชาการ'
+  
+  // ฉ.1 และ ฉ.2
+  sF_1: 'ปรับปรุงเนื้อหารายวิชาให้ทันสมัย ปรับโครงสร้างหลักสูตรและสัดส่วนหน่วยกิตให้สอดคล้องกับความต้องการของสถานประกอบการ และเพิ่มเติมรายวิชาด้านเทคโนโลยีดิจิทัลและปัญญาประดิษฐ์',
+  sF_2: 'เพื่อให้หลักสูตรทันสมัย สอดคล้องกับกรอบมาตรฐานคุณวุฒิระดับอุดมศึกษาแห่งชาติฉบับปัจจุบัน และตอบสนองความต้องการกำลังคนด้านวิศวกรรมอิเล็กทรอนิกส์ของภาคอุตสาหกรรม',
+
+  // ฉ.3 ตารางเปรียบเทียบ
+  sF_3: [
+    { topic: 'จำนวนหน่วยกิตรวม', oldVal: '147 หน่วยกิต', newVal: '147 หน่วยกิต' },
+    { topic: 'จำนวนแขนงวิชา', oldVal: '4 แขนงวิชา', newVal: '4 แขนงวิชา' },
+    { topic: 'รายวิชาที่เพิ่มใหม่', oldVal: '—', newVal: 'รายวิชาด้าน AI / IoT / Cybersecurity' }
   ]
 })
 
-// ================= Helper Functions (List) =================
-const addList = (key: string) => { form.value[key].push('') }
-const removeList = (key: string, idx: number) => {
-  form.value[key].splice(idx, 1)
-  if (form.value[key].length === 0) form.value[key].push('')
+// ================= Helper Functions =================
+const addTable = () => { 
+  form.value.sF_3.push({ topic: '', oldVal: '', newVal: '' }) 
+}
+const removeTable = (idx: number) => {
+  form.value.sF_3.splice(idx, 1)
+  if (form.value.sF_3.length === 0) form.value.sF_3.push({ topic: '', oldVal: '', newVal: '' })
 }
 
 const doneState = ref<Record<number, boolean>>({})
@@ -60,7 +61,7 @@ const saveAndNext = async () => {
   isSavingNext.value = true
   await new Promise(r => setTimeout(r, 1000))
   isSavingNext.value = false 
-  router.push({ path: '/number7', query: { id: programId.value } })
+  router.push({ path: '/appendix/g', query: { id: programId.value } })
 }
 
 const scrollToSec = (id: string) => {
@@ -79,21 +80,20 @@ const scrollToSec = (id: string) => {
       
       <!-- Breadcrumb & Title -->
       <div class="crumb">
-        <span>เล่มหลักสูตร</span> › <b class="text-[#1B2A4A] font-semibold">หมวดที่ 6</b>
-        <span class="page-badge">หน้า 7 / 9</span>
+        <span>เล่มหลักสูตร</span> › <b>ภาคผนวก</b> › <b class="text-[#1B2A4A] font-semibold">ภาคผนวก ฉ.</b>
       </div>
       <div class="doc-head">
-        <div class="doc-eyebrow">หมวดที่ 6</div>
-        <h1 class="doc-title">การพัฒนาอาจารย์</h1>
+        <div class="doc-eyebrow">ภาคผนวก ฉ.</div>
+        <h1 class="doc-title">รายละเอียดการปรับปรุงแก้ไขหลักสูตร</h1>
       </div>
 
       <!-- TOC Card -->
       <div class="toc-card">
         <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อกระโดดไปยังหัวข้อ</div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-[4px_18px]">
-          <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="scrollToSec(`sec-6-${i+1}`)">
+          <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="scrollToSec(`app-ฉ-${i+1}`)">
             <div class="toc-dot"></div>
-            <span class="toc-num">6.{{ i + 1 }}</span>
+            <span class="toc-num">ฉ.{{ i + 1 }}</span>
             <span class="lbl">{{ title }}</span>
           </div>
         </div>
@@ -103,10 +103,10 @@ const scrollToSec = (id: string) => {
       <div class="paper-card">
         
         <!-- Loop สร้างทั้ง 3 Section -->
-        <section v-for="(title, i) in sectionTitles" :key="i" :id="`sec-6-${i+1}`" class="topic-sec">
+        <section v-for="(title, i) in sectionTitles" :key="i" :id="`app-ฉ-${i+1}`" class="topic-sec">
           
           <div class="sec-head">
-            <div class="sec-number">6.{{ i + 1 }}</div>
+            <div class="sec-number text-[#1B2A4A]">ฉ.{{ i + 1 }}</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
               <h2 class="sec-title pt-1">{{ title }}</h2>
               <button type="button" class="sec-check" :class="{ 'on': doneState[i] }" @click="toggleDone(i)">
@@ -115,27 +115,38 @@ const scrollToSec = (id: string) => {
             </div>
           </div>
 
-          <div class="sec-body">
+          <div class="sec-body mt-4">
             
-            <!-- 🌟 6.1 (Textarea ปกติ) -->
-            <template v-if="i === 0">
+            <!-- 🌟 ฉ.1 - ฉ.2 (Textarea ปกติ) -->
+            <template v-if="i === 0 || i === 1">
               <div class="fs-grid full">
                 <div class="fs-field">
-                  <textarea v-model="form.s6_1" class="field" placeholder="ระบุการเตรียมการสำหรับอาจารย์ใหม่..."></textarea>
+                  <textarea v-model="form[`sF_${i+1}`]" class="field" :placeholder="`ระบุข้อมูล ${title}...`" style="min-height: 100px;"></textarea>
                 </div>
               </div>
             </template>
 
-            <!-- 🌟 6.2 - 6.3 (Dynamic List) -->
-            <template v-else-if="i === 1 || i === 2">
-              <div class="list-editor">
-                <div class="list-row" v-for="(item, idx) in form[`s6_${i+1}`]" :key="idx">
-                  <div class="list-num">{{ idx + 1 }}</div>
-                  <input v-model="form[`s6_${i+1}`][idx]" type="text" placeholder="ระบุแนวทางหรือกลยุทธ์..." />
-                  <button type="button" class="row-del" @click="removeList(`s6_${i+1}`, idx)">✕</button>
-                </div>
-                <button type="button" class="add-row" @click="addList(`s6_${i+1}`)">+ เพิ่มรายการ</button>
-              </div>
+            <!-- 🌟 ฉ.3 ตารางเปรียบเทียบ (Table Builder) -->
+            <template v-else-if="i === 2">
+              <table class="builder">
+                <thead>
+                  <tr>
+                    <th>หัวข้อ</th>
+                    <th>หลักสูตรเดิม (พ.ศ. 2560)</th>
+                    <th>หลักสูตรปรับปรุง (พ.ศ. 2565)</th>
+                    <th style="width: 40px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, idx) in form.sF_3" :key="idx">
+                    <td><input v-model="row.topic" type="text" placeholder="ระบุหัวข้อ..."></td>
+                    <td><input v-model="row.oldVal" type="text" placeholder="ข้อมูลหลักสูตรเดิม..."></td>
+                    <td><input v-model="row.newVal" type="text" placeholder="ข้อมูลหลักสูตรปรับปรุง..."></td>
+                    <td><button type="button" class="table-del" @click="removeTable(idx)">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="button" class="add-row mt-2" @click="addTable()">+ เพิ่มแถว</button>
             </template>
 
           </div>
@@ -145,15 +156,15 @@ const scrollToSec = (id: string) => {
 
       <!-- Action Footer -->
       <div class="page-footer">
-        <button type="button" @click="router.push(`/number5?id=${programId || ''}`)" class="nav-btn">
-          ← <span>หลักเกณฑ์ในการประเมินผล</span>
+        <button type="button" @click="router.push(`/appendix/e?id=${programId || ''}`)" class="nav-btn">
+          ← <span>ภาคผนวก จ. ผลงานวิชาการอาจารย์</span>
         </button>
         <div class="flex flex-col md:flex-row gap-3">
           <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
             <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
           </button>
           <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'หมวดที่ 7 การประกันคุณภาพ' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
+            <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'ภาคผนวก ช. ตารางเปรียบเทียบมาตรฐานฯ' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
           </button>
         </div>
       </div>
@@ -178,6 +189,7 @@ const scrollToSec = (id: string) => {
 
 .toc-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 18px 24px 20px; margin-bottom: 18px; }
 .toc-label { font-size: 11.5px; color: #A8793B; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; }
+.toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 4px 18px; }
 .toc-item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #26241E; border: 1px solid transparent; transition: all 0.2s; }
 .toc-item:hover { background: #F3EFE4; }
 .toc-num { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 12.5px; min-width: 24px; flex: none; }
@@ -193,30 +205,33 @@ const scrollToSec = (id: string) => {
 @keyframes pulseSec { 0% { background: #EEE0C6; } 100% { background: transparent; } }
 
 .sec-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
-.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 17px; min-width: 32px; flex: none; }
+.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #1B2A4A; font-size: 17px; min-width: 32px; flex: none; }
 .sec-title { font-size: 16.5px; font-weight: 600; color: #1B2A4A; flex: 1; margin: 0; line-height: 1.4; }
 .sec-check { flex: none; border: 1px solid #E3DCC9; background: #fff; color: #736F60; border-radius: 7px; padding: 6px 12px; font-size: 11.8px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
 .sec-check.on { background: #E4EEE7 !important; border-color: #3F6B52 !important; color: #3F6B52 !important; }
 .sec-body { padding-left: 44px; }
 @media (max-width:720px){ .sec-body { padding-left: 0; } }
 
-.fs-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.fs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.fs-grid.full { grid-template-columns: 1fr; }
 .fs-field label { display: block; font-size: 12.6px; font-weight: 600; color: #1B2A4A; margin-bottom: 6px; }
 
+/* Textarea */
 textarea.field {
   width: 100%; border: 1px solid #E3DCC9 !important; border-radius: 8px !important; 
   padding: 9px 12px !important; font-size: 13.6px !important; background: #FEFDFA !important; 
-  color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; min-height: 100px; resize: vertical; line-height: 1.7; transition: all 0.2s; 
+  color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; transition: all 0.2s; 
 }
 textarea.field:focus { outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; }
 
-/* Dynamic List Editor */
-.list-editor .list-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
-.list-num { width: 24px; height: 24px; flex: none; margin-top: 3px; border-radius: 50%; background: #F3EFE4; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; color: #1B2A4A; font-family: 'Noto Serif Thai', serif; }
-.list-row input { flex: 1; border: 1px solid #E3DCC9 !important; border-radius: 7px !important; padding: 9px 12px !important; font-size: 13.8px !important; background: #FEFDFA !important; box-shadow: none !important; outline: none !important; }
-.list-row input:focus { border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; }
-.row-del { width: 30px; height: 30px; flex: none; border: 1px solid #E3DCC9; background: #fff; border-radius: 7px; color: #9C4132; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-.row-del:hover { background: #FBECE8; }
+/* Table Builder */
+table.builder { width: 100%; border-collapse: collapse; margin-top: 4px; }
+table.builder th { background: #1B2A4A; color: #EFE7D6; font-size: 12.3px; font-weight: 600; text-align: left; padding: 9px 12px; border: 1px solid #1B2A4A; }
+table.builder td { border: 1px solid #E3DCC9; padding: 5px 6px; }
+table.builder td input { width: 100%; border: 1px solid transparent !important; background: transparent !important; padding: 6px 8px !important; font-size: 13.4px !important; border-radius: 5px !important; }
+table.builder td input:focus { outline: none !important; border-color: #A8793B !important; background: #EEE0C6 !important; }
+table.builder tr:nth-child(even) td { background: #FCFAF4; }
+.table-del { border: none; background: none; color: #9C4132; font-size: 14px; width: 100%; text-align: center; cursor: pointer;}
 .add-row { margin-top: 6px; border: 1px dashed #C9BFA2; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
 .add-row:hover { background: #EEE0C6; }
 

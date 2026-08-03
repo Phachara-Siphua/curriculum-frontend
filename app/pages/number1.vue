@@ -1,3 +1,4 @@
+<!-- pages/number1.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 const route = useRoute()
@@ -5,37 +6,58 @@ const router = useRouter()
 
 // ================= State ข้อมูลฟอร์มหน้า 1 =================
 const form = ref({
-  id: null as string | number | null, // สำหรับเก็บ program_id (PK ของตาราง PROGRAM)
-  programCode: '', 
-  nameTh: '', 
-  nameEn: '', 
-  degreeTh: '', 
-  degreeAbbrTh: '', 
-  degreeEn: '', 
-  degreeAbbrEn: '',
-  major: '', 
-  durationYears: null as number | null, 
-  programCategory: '', 
-  language: '', 
-  admission: '', 
-  openYear: '', 
-  approvalDetails: ''
+  id: null as string | number | null, 
+  // 1.1
+  programCode: '', nameTh: '', nameEn: '', 
+  // 1.2
+  degreeFullTh: '', degreeAbbrTh: '', degreeFullEn: '', degreeAbbrEn: '',
+  // 1.3
+  majors: [''] as string[],
+  // 1.4
+  totalCredits: '',
+  // 1.5
+  format: '', ptype: '', language: 'ภาษาไทย', admission: '', cooperation: '', degreeGrant: '',
+  // 1.6
+  approvals: [{ body: '', date: '', note: '' }],
+  // 1.7
+  readiness: '',
+  // 1.8
+  careers: [''] as string[],
+  // 1.9
+  instructors: [{ name: '', position: '', degree: '', branch: '' }],
+  // 1.10
+  location: '',
+  // 1.11
+  econSituation: '', socialSituation: '',
+  // 1.12
+  devPlan: '', universityMission: '',
+  // 1.13
+  otherCoursesIn: '', otherCoursesOut: '', administration: ''
 })
 
-const programTypeItems = ['หลักสูตรใหม่', 'หลักสูตรปรับปรุง']
-const programTypeValue = ref('หลักสูตรใหม่')
-const programFormatItems = ['หลักสูตรระดับปริญญาตรี', 'หลักสูตรระดับปริญญาโท', 'หลักสูตรระดับปริญญาเอก']
-const programFormatValue = ref('หลักสูตรระดับปริญญาตรี')
-const degreeGrantItems = ['ให้ปริญญาเพียงสาขาวิชาเดียว', 'ให้ปริญญาร่วมกับสถาบันอื่น']
-const degreeGrantValue = ref('ให้ปริญญาเพียงสาขาวิชาเดียว')
+const positionOptions = ['ศาสตราจารย์', 'รองศาสตราจารย์', 'ผู้ช่วยศาสตราจารย์', 'อาจารย์']
+const branchOptions = ['แขนงวิชาโทรคมนาคม', 'แขนงวิชาคอมพิวเตอร์', 'แขนงวิชาเครื่องมือวัดและควบคุม', 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์']
 
 // 💾 เมื่อหน้าเว็บโหลด ให้ดึงข้อมูลมาแสดง ถ้ามี id แนบมากับ URL
 onMounted(() => {
   if (route.query.id) {
     form.value.id = route.query.id as string
-    // [Backend Task]: ยิง API GET /programs/{id} เพื่อดึงข้อมูลมาแสดง
   }
 })
+
+// ================= List Actions =================
+const addMajor = () => form.value.majors.push('')
+const removeMajor = (i: number) => { form.value.majors.splice(i, 1); if(form.value.majors.length === 0) form.value.majors.push('') }
+
+const addCareer = () => form.value.careers.push('')
+const removeCareer = (i: number) => { form.value.careers.splice(i, 1); if(form.value.careers.length === 0) form.value.careers.push('') }
+
+const addApproval = () => form.value.approvals.push({ body: '', date: '', note: '' })
+const removeApproval = (i: number) => { form.value.approvals.splice(i, 1); if(form.value.approvals.length === 0) form.value.approvals.push({ body: '', date: '', note: '' }) }
+
+const addInstructor = () => form.value.instructors.push({ name: '', position: '', degree: '', branch: '' })
+const removeInstructor = (i: number) => { form.value.instructors.splice(i, 1); if(form.value.instructors.length === 0) form.value.instructors.push({ name: '', position: '', degree: '', branch: '' }) }
+
 
 // ================= ระบบบันทึกข้อมูล (Save System) =================
 const isSavingDraft = ref(false)
@@ -43,145 +65,502 @@ const isSavingNext = ref(false)
 
 const saveDraft = async () => {
   isSavingDraft.value = true
-  // [Backend Task]: ยิง API POST (ถ้า id=null) หรือ PUT (ถ้ามี id) ไปอัปเดตตาราง PROGRAM (status = 'draft')
   await new Promise(r => setTimeout(r, 1000))
-  if (!form.value.id) form.value.id = 1 // สมมติว่าได้ ID จาก Backend กลับมา
+  if (!form.value.id) form.value.id = 1 
   isSavingDraft.value = false
-  alert(`บันทึกฉบับร่างเรียบร้อยแล้ว (Program ID: ${form.value.id})`)
 }
 
 const saveAndNext = async () => {
   isSavingNext.value = true
-  // [Backend Task]: ยิง API บันทึกข้อมูลตาราง PROGRAM
   await new Promise(r => setTimeout(r, 1000))
-  if (!form.value.id) form.value.id = 1 // สมมติว่าเซฟแล้วได้ ID กลับมา
+  if (!form.value.id) form.value.id = 1 
   isSavingNext.value = false
-  
-  // แนบ id ข้ามไปหน้า 2 
   router.push({ path: '/number2', query: { id: form.value.id } })
 }
-// =============================================================
+
+// ================= UI State & Actions =================
+const scrollToSec = (id: string) => {
+  const el = document.getElementById(id)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    el.classList.add('pulse')
+    setTimeout(() => el.classList.remove('pulse'), 1200)
+  }
+}
+
+// สถานะการกรอกข้อมูลแต่ละหัวข้อ (1.1 - 1.13)
+const doneState = ref({
+  s1_1: false, s1_2: false, s1_3: false, s1_4: false, s1_5: false,
+  s1_6: false, s1_7: false, s1_8: false, s1_9: false, s1_10: false,
+  s1_11: false, s1_12: false, s1_13: false
+})
+const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key] = !doneState.value[key] }
 </script>
 
 <template>
-  <div class="w-full p-4 md:p-6">
-    <UForm :state="form" class="w-full">
-      <div class="w-full shadow-md border border-gray-200 rounded-2xl overflow-hidden bg-white">
-        
-        <div class="bg-[#1a2744] px-6 py-5 flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-[#c8a84b] flex items-center justify-center text-white font-bold">1</div>
-          <p class="text-white font-bold text-xl tracking-wide font-sans m-0">ชื่อปริญญา ประกาศนียบัตรบัณฑิต และสาขาวิชา</p>
-        </div>
+  <div class="page-shell">
+    <form @submit.prevent class="w-full">
+      
+      <!-- Breadcrumb & Title -->
+      <div class="crumb">
+        <span>เล่มหลักสูตร</span> › <b>หมวดที่ 1</b>
+        <span class="page-badge">หน้า 2 / 9</span>
+      </div>
+      <div class="doc-head">
+        <div class="doc-eyebrow">หมวดที่ 1</div>
+        <h1 class="doc-title">ข้อมูลทั่วไป</h1>
+      </div>
 
-        <div class="p-6 md:p-8 space-y-8">
-          <!-- ❗❗❗ คอมเมนต์อ้างอิงตาม ER Diagram (image_ed9000.jpg) ❗❗❗ -->
-
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 space-y-4 shadow-sm">
-            <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block m-0">1. รหัสและชื่อหลักสูตร</p>
-            <div class="space-y-4">
-              <!-- ✅ DB: ตาราง PROGRAM (program_code) -->
-              <UFormField label="รหัสหลักสูตร" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.programCode" class="w-full bg-white" placeholder="รหัสหลักสูตร" />
-              </UFormField>
-              <!-- ✅ DB: ตาราง PROGRAM (name_th) -->
-              <UFormField label="ชื่อหลักสูตร (ภาษาไทย)" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.nameTh" class="w-full bg-white" placeholder="ชื่อเต็มภาษาไทย" />
-              </UFormField>
-              <!-- ✅ DB: ตาราง PROGRAM (name_en) -->
-              <UFormField label="Program Name (English)" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.nameEn" class="w-full bg-white" placeholder="Full program name in English" />
-              </UFormField>
-            </div>
-          </div>
-
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
-            <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-4 m-0">2. ชื่อปริญญาและสาขาวิชา</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- ✅ DB: ตาราง PROGRAM (degree_name_th) -->
-              <UFormField label="ชื่อเต็ม (ภาษาไทย)" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.degreeTh" class="w-full bg-white" placeholder="เช่น วิศวกรรมศาสตรบัณฑิต (...)" />
-              </UFormField>
-              <!-- ✅ DB: ตาราง PROGRAM (degree_abbr_th) -->
-              <UFormField label="ชื่อย่อ (ภาษาไทย)" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.degreeAbbrTh" class="w-full bg-white" placeholder="เช่น วศ.บ. (...)" />
-              </UFormField>
-              <!-- ✅ DB: ตาราง PROGRAM (degree_name_en) -->
-              <UFormField label="Full Name (English)" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.degreeEn" class="w-full bg-white" placeholder="e.g. Bachelor of Engineering (...)" />
-              </UFormField>
-              <!-- ✅ DB: ตาราง PROGRAM (degree_abbr_en) -->
-              <UFormField label="Abbreviation (English)" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.degreeAbbrEn" class="w-full bg-white" placeholder="e.g. B.Eng. (...)" />
-              </UFormField>
-            </div>
-          </div>
-
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
-            <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-4 m-0">3. วิชาเอก</p>
-            <!-- ✅ DB: ตาราง PROGRAM (major) -->
-            <UFormField label="วิชาเอก (ถ้ามี)" :ui="{ label: 'text-gray-800 font-bold' }">
-              <UInput v-model="form.major" class="w-full bg-white" placeholder="ระบุวิชาเอก หรือ 'ไม่มี'" />
-            </UFormField>
-          </div>
-
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 space-y-4 shadow-sm">
-            <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-2 m-0">4. รูปแบบของหลักสูตร</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- ✅ DB: ตาราง PROGRAM (program_format) -->
-              <UFormField label="4.1 รูปแบบ" :ui="{ label: 'text-gray-800 font-bold' }">
-                <USelectMenu v-model="programFormatValue" :items="programFormatItems" class="w-full bg-white" />
-              </UFormField>
-              <!-- ✅ DB: ตาราง PROGRAM (duration_years) -->
-              <UFormField label="ระยะเวลา (ปี)" :ui="{ label: 'text-gray-800 font-bold' }">
-                <UInput v-model="form.durationYears" class="w-full bg-white" type="number" placeholder="4" />
-              </UFormField>
-            </div>
-            <!-- ✅ DB: ตาราง PROGRAM (program_category) *ต้องสร้างเพิ่ม -->
-            <UFormField label="4.2 ประเภทหลักสูตร" :ui="{ label: 'text-gray-800 font-bold' }">
-              <UInput v-model="form.programCategory" class="w-full bg-white" placeholder="เช่น หลักสูตรปริญญาตรีทางวิชาการ" />
-            </UFormField>
-            <!-- ✅ DB: ตาราง PROGRAM (language) -->
-            <UFormField label="4.3 ภาษาที่ใช้" :ui="{ label: 'text-gray-800 font-bold' }">
-              <UInput v-model="form.language" class="w-full bg-white" placeholder="เช่น ภาษาไทยและภาษาอังกฤษ" />
-            </UFormField>
-            <!-- ✅ DB: ตาราง PROGRAM_ADMISSION (selection_criteria หรือตารางอื่นที่เหมาะสม) -->
-            <UFormField label="4.4 การรับเข้าศึกษา" :ui="{ label: 'text-gray-800 font-bold' }">
-              <UInput v-model="form.admission" class="w-full bg-white" placeholder="เช่น รับนักศึกษาไทยและต่างประเทศ..." />
-            </UFormField>
-            <!-- ✅ DB: ตาราง PROGRAM (degree_granting) -->
-            <UFormField label="4.6 การให้ปริญญาแก่ผู้สำเร็จการศึกษา" :ui="{ label: 'text-gray-800 font-bold' }">
-              <USelectMenu v-model="degreeGrantValue" :items="degreeGrantItems" class="w-full bg-white" />
-            </UFormField>
-          </div>
-
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 space-y-4 shadow-sm">
-            <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-2 m-0">5. สถานภาพและการอนุมัติ</p>
-            <!-- ✅ DB: ตาราง PROGRAM (program_type) -->
-            <UFormField label="ประเภทหลักสูตร" :ui="{ label: 'text-gray-800 font-bold' }">
-              <USelectMenu v-model="programTypeValue" :items="programTypeItems" class="w-full bg-white" />
-            </UFormField>
-            <!-- ✅ DB: ตาราง PROGRAM (open_year) -->
-            <UFormField label="เปิดสอนปีการศึกษา" :ui="{ label: 'text-gray-800 font-bold' }">
-              <UInput v-model="form.openYear" class="w-full bg-white" placeholder="เช่น ภาคการศึกษาที่ 1 ปีการศึกษา 2568" />
-            </UFormField>
-            <!-- ✅ DB: *ต้องเพิ่มคอลัมน์ approval_details ใน PROGRAM -->
-            <UFormField label="รายละเอียดการผ่านการพิจารณา" :ui="{ label: 'text-gray-800 font-bold' }">
-              <UTextarea v-model="form.approvalDetails" class="w-full bg-white" :rows="4" placeholder="ระบุวาระ วันเดือนปีที่ผ่านการพิจารณา" />
-            </UFormField>
-          </div>
-
-          <!-- ปุ่ม Action -->
-          <div class="pt-6 border-t border-gray-200 flex justify-end gap-4 mt-8">
-            <UButton color="neutral" variant="outline" class="px-6 py-3 text-base font-bold rounded-xl border-gray-300 hover:bg-gray-50 bg-white" :loading="isSavingDraft" @click="saveDraft()">
-              <UIcon name="i-heroicons-document-text" class="mr-2 w-5 h-5" /> บันทึกฉบับร่าง
-            </UButton>
-            <UButton class="bg-[#1a2744] hover:bg-[#243360] text-white px-8 py-3 text-lg font-bold rounded-xl shadow-lg transition-transform hover:-translate-y-1" :loading="isSavingNext" @click="saveAndNext()">
-              บันทึกและถัดไป <UIcon name="i-heroicons-arrow-right" class="ml-2 w-5 h-5"/>
-            </UButton>
-          </div>
-
+      <!-- TOC Card -->
+      <div class="toc-card">
+        <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อกระโดดไปยังหัวข้อ</div>
+        <!-- ใช้ grid-cols-3 เพื่อให้จัดเรียงได้เหมือนในรูป Mockup -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-[4px_18px]">
+          <div class="toc-item" :class="{ 'filled': doneState.s1_1 }" @click="scrollToSec('sec-1-1')"><div class="toc-dot"></div><span class="toc-num">1.1</span><span class="lbl">รหัสและชื่อหลักสูตร</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_2 }" @click="scrollToSec('sec-1-2')"><div class="toc-dot"></div><span class="toc-num">1.2</span><span class="lbl">ชื่อปริญญาและสาขาวิชา</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_3 }" @click="scrollToSec('sec-1-3')"><div class="toc-dot"></div><span class="toc-num">1.3</span><span class="lbl">วิชาเอก</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_4 }" @click="scrollToSec('sec-1-4')"><div class="toc-dot"></div><span class="toc-num">1.4</span><span class="lbl">จำนวนหน่วยกิตที่เรียนตลอดหลักสูตร</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_5 }" @click="scrollToSec('sec-1-5')"><div class="toc-dot"></div><span class="toc-num">1.5</span><span class="lbl">รูปแบบของหลักสูตร</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_6 }" @click="scrollToSec('sec-1-6')"><div class="toc-dot"></div><span class="toc-num">1.6</span><span class="lbl">สถานภาพของหลักสูตรและการพิจารณา...</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_7 }" @click="scrollToSec('sec-1-7')"><div class="toc-dot"></div><span class="toc-num">1.7</span><span class="lbl">ความพร้อมในการเผยแพร่หลักสูตร...</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_8 }" @click="scrollToSec('sec-1-8')"><div class="toc-dot"></div><span class="toc-num">1.8</span><span class="lbl">อาชีพที่สามารถประกอบได้หลังสำเร็จ...</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_9 }" @click="scrollToSec('sec-1-9')"><div class="toc-dot"></div><span class="toc-num">1.9</span><span class="lbl">ชื่อ-นามสกุล ตำแหน่ง และคุณวุฒิ...</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_10 }" @click="scrollToSec('sec-1-10')"><div class="toc-dot"></div><span class="toc-num">1.10</span><span class="lbl">สถานที่จัดการเรียนการสอน</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_11 }" @click="scrollToSec('sec-1-11')"><div class="toc-dot"></div><span class="toc-num">1.11</span><span class="lbl">สถานการณ์ภายนอกหรือการพัฒนา...</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_12 }" @click="scrollToSec('sec-1-12')"><div class="toc-dot"></div><span class="toc-num">1.12</span><span class="lbl">ผลกระทบจากข้อ 11.1 และ 11.2 ต่อ...</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s1_13 }" @click="scrollToSec('sec-1-13')"><div class="toc-dot"></div><span class="toc-num">1.13</span><span class="lbl">ความสัมพันธ์กับหลักสูตรอื่นที่เปิดสอ...</span></div>
         </div>
       </div>
-    </UForm>
+
+      <!-- Main Paper Card -->
+      <div class="paper-card">
+        
+        <!-- 1.1 รหัสและชื่อหลักสูตร -->
+        <section class="topic-sec" id="sec-1-1">
+          <div class="sec-head">
+            <div class="sec-number">1.1</div><h2 class="sec-title">รหัสและชื่อหลักสูตร</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_1 }" @click="toggleDone('s1_1')">{{ doneState.s1_1 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                <label>รหัสหลักสูตร</label>
+                <input v-model="form.programCode" type="text" />
+              </div>
+              <div class="fs-field">
+                <label>ชื่อหลักสูตร <span class="lang-tag">ภาษาไทย</span></label>
+                <input v-model="form.nameTh" type="text" />
+              </div>
+              <div class="fs-field">
+                <label>Program Name <span class="lang-tag">English</span></label>
+                <input v-model="form.nameEn" type="text" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.2 ชื่อปริญญาและสาขาวิชา -->
+        <section class="topic-sec" id="sec-1-2">
+          <div class="sec-head">
+            <div class="sec-number">1.2</div><h2 class="sec-title">ชื่อปริญญาและสาขาวิชา</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_2 }" @click="toggleDone('s1_2')">{{ doneState.s1_2 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid">
+              <div class="fs-field">
+                <label>ชื่อเต็ม <span class="lang-tag">ภาษาไทย</span></label>
+                <input v-model="form.degreeFullTh" type="text" placeholder="เช่น วิศวกรรมศาสตรบัณฑิต (...)" />
+              </div>
+              <div class="fs-field">
+                <label>ชื่อย่อ <span class="lang-tag">ภาษาไทย</span></label>
+                <input v-model="form.degreeAbbrTh" type="text" placeholder="เช่น วศ.บ. (...)" />
+              </div>
+              <div class="fs-field">
+                <label>Full Name <span class="lang-tag">English</span></label>
+                <input v-model="form.degreeFullEn" type="text" placeholder="e.g. Bachelor of Engineering (...)" />
+              </div>
+              <div class="fs-field">
+                <label>Abbreviation <span class="lang-tag">English</span></label>
+                <input v-model="form.degreeAbbrEn" type="text" placeholder="e.g. B.Eng. (...)" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.3 วิชาเอก -->
+        <section class="topic-sec" id="sec-1-3">
+          <div class="sec-head">
+            <div class="sec-number">1.3</div><h2 class="sec-title">วิชาเอก</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_3 }" @click="toggleDone('s1_3')">{{ doneState.s1_3 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <p class="sec-hint">ระบุแขนงวิชา/วิชาเอกที่เปิดสอนในหลักสูตร</p>
+          <div class="sec-body">
+            <div class="list-editor">
+              <div class="list-row" v-for="(major, i) in form.majors" :key="i">
+                <div class="list-num">{{ i + 1 }}</div>
+                <input v-model="form.majors[i]" type="text" placeholder="ระบุแขนงวิชา/วิชาเอก" />
+                <button type="button" class="row-del" @click="removeMajor(i)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addMajor()">+ เพิ่มรายการ</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.4 จำนวนหน่วยกิตที่เรียนตลอดหลักสูตร -->
+        <section class="topic-sec" id="sec-1-4">
+          <div class="sec-head">
+            <div class="sec-number">1.4</div><h2 class="sec-title">จำนวนหน่วยกิตที่เรียนตลอดหลักสูตร</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_4 }" @click="toggleDone('s1_4')">{{ doneState.s1_4 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                <input v-model="form.totalCredits" type="text" placeholder="เช่น 147 หน่วยกิต" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.5 รูปแบบของหลักสูตร -->
+        <section class="topic-sec" id="sec-1-5">
+          <div class="sec-head">
+            <div class="sec-number">1.5</div><h2 class="sec-title">รูปแบบของหลักสูตร</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_5 }" @click="toggleDone('s1_5')">{{ doneState.s1_5 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <p class="sec-hint">5.1 รูปแบบ · 5.2 ประเภทของหลักสูตร · 5.3 ภาษาที่ใช้ · 5.4 การรับเข้าศึกษา · 5.5 ความร่วมมือ · 5.6 การให้ปริญญา</p>
+          <div class="sec-body">
+            <div class="fs-grid">
+              <div class="fs-field" style="grid-column: 1 / -1;">
+                <label>5.1 รูปแบบ</label>
+                <textarea v-model="form.format" class="field" placeholder="เช่น หลักสูตรระดับปริญญาตรี 4 ปี จัดการเรียนการสอนแบบ..."></textarea>
+              </div>
+              <div class="fs-field" style="grid-column: 1 / -1;">
+                <label>5.2 ประเภทของหลักสูตร</label>
+                <input v-model="form.ptype" type="text" placeholder="เช่น หลักสูตรปริญญาตรีทางวิชาการ" />
+              </div>
+              <div class="fs-field" style="grid-column: 1 / -1;">
+                <label>5.3 ภาษาที่ใช้</label>
+                <div class="radio-group">
+                  <label class="radio-option" :class="{ 'sel': form.language === 'ภาษาไทย' }">
+                    <input type="radio" v-model="form.language" value="ภาษาไทย" /> ภาษาไทย
+                  </label>
+                  <label class="radio-option" :class="{ 'sel': form.language === 'ภาษาไทยและภาษาอังกฤษ' }">
+                    <input type="radio" v-model="form.language" value="ภาษาไทยและภาษาอังกฤษ" /> ภาษาไทยและภาษาอังกฤษ
+                  </label>
+                  <label class="radio-option" :class="{ 'sel': form.language === 'ภาษาอังกฤษ' }">
+                    <input type="radio" v-model="form.language" value="ภาษาอังกฤษ" /> ภาษาอังกฤษ
+                  </label>
+                </div>
+              </div>
+              <div class="fs-field" style="grid-column: 1 / -1;">
+                <label>5.4 การรับเข้าศึกษา</label>
+                <input v-model="form.admission" type="text" placeholder="เช่น รับนักศึกษาไทยและนักศึกษาต่างชาติที่สามารถใช้ภาษาไทยได้" />
+              </div>
+              <div class="fs-field" style="grid-column: 1 / -1;">
+                <label>5.5 ความร่วมมือกับสถาบันอื่น</label>
+                <input v-model="form.cooperation" type="text" placeholder="เช่น ไม่มี หรือ มีความร่วมมือกับ..." />
+              </div>
+              <div class="fs-field" style="grid-column: 1 / -1;">
+                <label>5.6 การให้ปริญญาแก่ผู้สำเร็จการศึกษา</label>
+                <input v-model="form.degreeGrant" type="text" placeholder="เช่น ให้ปริญญาเพียงสาขาวิชาเดียว" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.6 สถานภาพของหลักสูตรและการพิจารณาอนุมัติ -->
+        <section class="topic-sec" id="sec-1-6">
+          <div class="sec-head">
+            <div class="sec-number">1.6</div><h2 class="sec-title">สถานภาพของหลักสูตรและการพิจารณาอนุมัติ/เห็นชอบ</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_6 }" @click="toggleDone('s1_6')">{{ doneState.s1_6 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div>
+              <div class="slist-item" v-for="(item, i) in form.approvals" :key="i">
+                <div class="slist-num">{{ i + 1 }}</div>
+                <div class="slist-fields fs-grid">
+                  <div class="fs-field" style="grid-column: span 1;">
+                    <label>คณะกรรมการ/ที่ประชุม</label>
+                    <input v-model="item.body" type="text" placeholder="เช่น สภาวิชาการ มหาวิทยาลัย..." />
+                  </div>
+                  <div class="fs-field" style="grid-column: span 1;">
+                    <label>วัน เดือน ปี</label>
+                    <input v-model="item.date" type="text" placeholder="เช่น 22 พฤศจิกายน 2564" />
+                  </div>
+                  <div class="fs-field" style="grid-column: 1 / -1;">
+                    <label>มติ/หมายเหตุ</label>
+                    <input v-model="item.note" type="text" placeholder="เช่น ให้ความเห็นชอบ (การประชุมครั้งที่ 10/2564)" />
+                  </div>
+                </div>
+                <button type="button" class="slist-del" @click="removeApproval(i)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addApproval()">+ เพิ่มรายการ</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.7 ความพร้อมในการเผยแพร่ -->
+        <section class="topic-sec" id="sec-1-7">
+          <div class="sec-head">
+            <div class="sec-number">1.7</div><h2 class="sec-title">ความพร้อมในการเผยแพร่หลักสูตรที่มีคุณภาพและมาตรฐาน</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_7 }" @click="toggleDone('s1_7')">{{ doneState.s1_7 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                <textarea v-model="form.readiness" class="field" placeholder="ระบุความพร้อมในการเผยแพร่..."></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.8 อาชีพที่สามารถประกอบได้ -->
+        <section class="topic-sec" id="sec-1-8">
+          <div class="sec-head">
+            <div class="sec-number">1.8</div><h2 class="sec-title">อาชีพที่สามารถประกอบได้หลังสำเร็จการศึกษา</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_8 }" @click="toggleDone('s1_8')">{{ doneState.s1_8 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="list-editor">
+              <div class="list-row" v-for="(career, i) in form.careers" :key="i">
+                <div class="list-num">{{ i + 1 }}</div>
+                <input v-model="form.careers[i]" type="text" placeholder="ระบุอาชีพ..." />
+                <button type="button" class="row-del" @click="removeCareer(i)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addCareer()">+ เพิ่มรายการ</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.9 อาจารย์ผู้รับผิดชอบหลักสูตร -->
+        <section class="topic-sec" id="sec-1-9">
+          <div class="sec-head">
+            <div class="sec-number">1.9</div><h2 class="sec-title">ชื่อ-นามสกุล ตำแหน่ง และคุณวุฒิการศึกษาของอาจารย์ผู้รับผิดชอบหลักสูตร</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_9 }" @click="toggleDone('s1_9')">{{ doneState.s1_9 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div>
+              <div class="slist-item" v-for="(item, i) in form.instructors" :key="i">
+                <div class="slist-num">{{ i + 1 }}</div>
+                <div class="slist-fields fs-grid">
+                  <div class="fs-field" style="grid-column: span 1;">
+                    <label>ชื่อ-นามสกุล</label>
+                    <input v-model="item.name" type="text" />
+                  </div>
+                  <div class="fs-field" style="grid-column: span 1;">
+                    <label>ตำแหน่งทางวิชาการ</label>
+                    <select v-model="item.position">
+                      <option value="" disabled>-- เลือกตำแหน่ง --</option>
+                      <option v-for="pos in positionOptions" :key="pos" :value="pos">{{ pos }}</option>
+                    </select>
+                  </div>
+                  <div class="fs-field" style="grid-column: 1 / -1;">
+                    <label>คุณวุฒิการศึกษา (เรียงจากสูงสุด พร้อมสถาบันและปี พ.ศ.)</label>
+                    <textarea v-model="item.degree" class="field"></textarea>
+                  </div>
+                  <div class="fs-field" style="grid-column: 1 / -1;">
+                    <label>แขนงวิชาที่สังกัด</label>
+                    <select v-model="item.branch">
+                      <option value="" disabled>-- เลือกแขนง --</option>
+                      <option v-for="br in branchOptions" :key="br" :value="br">{{ br }}</option>
+                    </select>
+                  </div>
+                </div>
+                <button type="button" class="slist-del" @click="removeInstructor(i)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addInstructor()">+ เพิ่มรายการอาจารย์</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.10 สถานที่จัดการเรียนการสอน -->
+        <section class="topic-sec" id="sec-1-10">
+          <div class="sec-head">
+            <div class="sec-number">1.10</div><h2 class="sec-title">สถานที่จัดการเรียนการสอน</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_10 }" @click="toggleDone('s1_10')">{{ doneState.s1_10 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                <input v-model="form.location" type="text" placeholder="ระบุสถานที่..." />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.11 สถานการณ์ภายนอก -->
+        <section class="topic-sec" id="sec-1-11">
+          <div class="sec-head">
+            <div class="sec-number">1.11</div><h2 class="sec-title">สถานการณ์ภายนอกหรือการพัฒนาที่จำเป็นต้องนำมาพิจารณาในการวางแผนหลักสูตร</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_11 }" @click="toggleDone('s1_11')">{{ doneState.s1_11 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                <label>11.1 สถานการณ์หรือการพัฒนาทางเศรษฐกิจ</label>
+                <textarea v-model="form.econSituation" class="field"></textarea>
+              </div>
+              <div class="fs-field">
+                <label>11.2 สถานการณ์หรือการพัฒนาทางสังคมและวัฒนธรรม</label>
+                <textarea v-model="form.socialSituation" class="field"></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.12 ผลกระทบจากข้อ 11.1 และ 11.2 -->
+        <section class="topic-sec" id="sec-1-12">
+          <div class="sec-head">
+            <div class="sec-number">1.12</div><h2 class="sec-title">ผลกระทบจากข้อ 11.1 และ 11.2 ต่อการพัฒนาหลักสูตรและความเกี่ยวข้องกับพันธกิจของมหาวิทยาลัย</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_12 }" @click="toggleDone('s1_12')">{{ doneState.s1_12 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                <label>12.1 การพัฒนาหลักสูตร</label>
+                <textarea v-model="form.devPlan" class="field"></textarea>
+              </div>
+              <div class="fs-field">
+                <label>12.2 ความเกี่ยวข้องกับพันธกิจของมหาวิทยาลัย</label>
+                <textarea v-model="form.universityMission" class="field"></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1.13 ความสัมพันธ์กับหลักสูตรอื่น -->
+        <section class="topic-sec" id="sec-1-13">
+          <div class="sec-head">
+            <div class="sec-number">1.13</div><h2 class="sec-title">ความสัมพันธ์กับหลักสูตรอื่นที่เปิดสอนในคณะ/ภาควิชาอื่นของมหาวิทยาลัย</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s1_13 }" @click="toggleDone('s1_13')">{{ doneState.s1_13 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                <label>13.1 กลุ่มวิชา/รายวิชาในหลักสูตรนี้ที่เปิดสอนโดยคณะ/ภาควิชาอื่น</label>
+                <textarea v-model="form.otherCoursesIn" class="field"></textarea>
+              </div>
+              <div class="fs-field">
+                <label>13.2 กลุ่มวิชา/รายวิชาที่เปิดสอนให้ภาควิชา/หลักสูตรอื่นต้องมาเรียน</label>
+                <textarea v-model="form.otherCoursesOut" class="field"></textarea>
+              </div>
+              <div class="fs-field">
+                <label>13.3 การบริหารจัดการ</label>
+                <textarea v-model="form.administration" class="field"></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Action Footer -->
+      <div class="page-footer">
+        <button type="button" @click="router.push(`/?id=${form.id || ''}`)" class="nav-btn">
+          ← <span>ข้อมูลสถาบันอุดมศึกษา</span>
+        </button>
+        <div class="flex flex-col md:flex-row gap-3">
+          <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
+            <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
+          </button>
+          <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'ข้อมูลเฉพาะของหลักสูตร' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
+          </button>
+        </div>
+      </div>
+
+    </form>
   </div>
 </template>
+
+<style scoped>
+/* ================== CSS ถอดแบบ 100% จาก Mockup HTML ================== */
+.page-shell { max-width: 900px; margin: 0 auto; width: 100%; }
+
+.crumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #736F60; margin-bottom: 14px; }
+.crumb b { color: #1B2A4A; font-weight: 600; }
+.page-badge { margin-left: auto; font-size: 11px; color: #A8793B; border: 1px solid #EEE0C6; background: #fff; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
+
+.doc-head { margin-bottom: 20px; }
+.doc-eyebrow { font-size: 12.5px; color: #A8793B; font-weight: 700; letter-spacing: .03em; margin-bottom: 6px; }
+.doc-title { font-size: 25px; font-weight: 600; color: #1B2A4A; margin: 0; font-family: 'Noto Serif Thai', serif; }
+
+.toc-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 18px 24px 20px; margin-bottom: 18px; }
+.toc-label { font-size: 11.5px; color: #A8793B; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; }
+.toc-grid { display: grid; gap: 4px 18px; }
+.toc-item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #26241E; border: 1px solid transparent; transition: all 0.2s; }
+.toc-item:hover { background: #F3EFE4; }
+.toc-num { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 12.5px; min-width: 28px; flex: none; }
+.toc-dot { width: 7px; height: 7px; border-radius: 50%; background: #E3DCC9; flex: none; transition: background 0.2s; }
+.toc-item.filled .toc-dot { background: #3F6B52; }
+.toc-item span.lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.paper-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 8px 42px 20px; position: relative; }
+
+.topic-sec { padding: 26px 0 30px; border-bottom: 1px solid #E3DCC9; position: relative; }
+.topic-sec:last-child { border-bottom: none; }
+.topic-sec.pulse { animation: pulseSec 1.1s ease; }
+@keyframes pulseSec { 0% { background: #EEE0C6; } 100% { background: transparent; } }
+
+.sec-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 17px; min-width: 44px; flex: none; }
+.sec-title { font-size: 16.5px; font-weight: 600; color: #1B2A4A; flex: 1; margin: 0; line-height: 1.4; }
+.sec-check { flex: none; border: 1px solid #E3DCC9; background: #fff; color: #736F60; border-radius: 7px; padding: 6px 12px; font-size: 11.8px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
+.sec-check.on { background: #E4EEE7 !important; border-color: #3F6B52 !important; color: #3F6B52 !important; }
+.sec-hint { font-size: 12.8px; color: #736F60; line-height: 1.7; margin: 2px 0 14px; padding-left: 56px; }
+.sec-body { padding-left: 56px; }
+@media (max-width:720px){ .sec-hint, .sec-body { padding-left: 0; } }
+
+.fs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.fs-grid.full { grid-template-columns: 1fr; }
+.fs-field label { display: block; font-size: 12.6px; font-weight: 600; color: #1B2A4A; margin-bottom: 6px; }
+.fs-field label .lang-tag { font-size: 10.6px; font-weight: 500; background: #EEF1F9; color: #4D5FA8; padding: 1px 7px; border-radius: 4px; margin-left: 6px; }
+
+/* Input, Select, Textarea */
+.fs-field input[type=text], .fs-field input[type=number], .fs-field select, textarea.field {
+  width: 100%; border: 1px solid #E3DCC9 !important; border-radius: 8px !important; 
+  padding: 9px 12px !important; font-size: 13.6px !important; background: #FEFDFA !important; 
+  color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; transition: all 0.2s; 
+}
+textarea.field { min-height: 100px; resize: vertical; line-height: 1.7; }
+.fs-field select { cursor: pointer; }
+.fs-field input:focus, .fs-field select:focus, textarea.field:focus { 
+  outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; 
+}
+
+/* Radio Group */
+.radio-group { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 2px; }
+.radio-option { display: flex; align-items: center; gap: 7px; padding: 7px 14px; border: 1.4px solid #E3DCC9; border-radius: 20px; cursor: pointer; font-size: 12.8px; color: #26241E; background: #fff; transition: all 0.12s; }
+.radio-option:hover { border-color: #A8793B; }
+.radio-option.sel { border-color: #A8793B; background: #EEE0C6; color: #1B2A4A; font-weight: 600; }
+.radio-option input { accent-color: #A8793B; }
+
+/* Dynamic List Editor */
+.list-editor .list-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+.list-num { width: 24px; height: 24px; flex: none; margin-top: 3px; border-radius: 50%; background: #F3EFE4; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; color: #1B2A4A; font-family: 'Noto Serif Thai', serif; }
+.list-row input { flex: 1; border: 1px solid #E3DCC9 !important; border-radius: 7px !important; padding: 9px 12px !important; font-size: 13.8px !important; background: #FEFDFA !important; box-shadow: none !important; outline: none !important; }
+.list-row input:focus { border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; }
+.row-del { width: 30px; height: 30px; flex: none; border: 1px solid #E3DCC9; background: #fff; border-radius: 7px; color: #9C4132; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+.row-del:hover { background: #FBECE8; }
+.add-row { margin-top: 6px; border: 1px dashed #C9BFA2; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
+.add-row:hover { background: #EEE0C6; }
+
+/* Structured List */
+.slist-item { display: flex; gap: 12px; align-items: flex-start; background: #F3EFE4; border: 1px solid #E3DCC9; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.slist-num { width: 26px; height: 26px; flex: none; border-radius: 50%; background: #1B2A4A; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 2px; font-family: 'Noto Serif Thai', serif; }
+.slist-fields { flex: 1; min-width: 0; }
+.slist-fields .fs-grid { margin-bottom: 0; }
+.slist-fields .fs-field { margin-bottom: 10px; }
+.slist-fields .fs-field:last-child { margin-bottom: 0; }
+.slist-fields .fs-field input, .slist-fields .fs-field select, .slist-fields .fs-field textarea { background: #fff !important; }
+.slist-del { flex: none; border: none; background: none; color: #9C4132; font-size: 17px; margin-top: 2px; border-radius: 5px; padding: 3px 6px; cursor: pointer; transition: 0.2s; }
+.slist-del:hover { background: #FBECE8; }
+
+.page-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
+.nav-btn { border: 1px solid #E3DCC9; background: #fff; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #1B2A4A; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; }
+.nav-btn:hover:not([disabled]) { border-color: #A8793B; color: #A8793B; }
+.nav-btn[disabled] { opacity: .35; pointer-events: none; }
+
+.btn-brass { background: #1B2A4A; transition: all 0.2s; }
+.btn-brass:hover { background: #2C3E63; }
+</style>

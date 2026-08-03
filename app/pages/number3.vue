@@ -1,181 +1,448 @@
+<!-- pages/number3.vue -->
 <script setup lang="ts">
 import { VueDraggable } from 'vue-draggable-plus'
 import { ref, onMounted, computed } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
+const programId = ref<string | null>(null)
 
-// ================= State ข้อมูลฟอร์มหน้า 3 =================
-const programId = ref<string | null>(null) // รับ ID จากหน้า 2
+// รายชื่อหัวข้อทั้ง 43 หัวข้อตามมาตรฐาน มคอ.2
+const sectionTitles = [
+  "ระบบ", "การจัดการศึกษาภาคฤดูร้อน", "การเทียบเคียงหน่วยกิตในระบบทวิภาค", "วัน-เวลาในการดำเนินการเรียนการสอน", "คุณสมบัติของผู้เข้าศึกษา",
+  "ปัญหาของนักศึกษาแรกเข้า", "กลยุทธ์ในการดำเนินการเพื่อแก้ไขปัญหาของนักศึกษาแรกเข้า", "แผนการรับนักศึกษาและผู้สำเร็จการศึกษาในระยะ 5 ปี", "งบประมาณรายรับ", "งบประมาณรายจ่าย",
+  "ระบบการศึกษา", "การเทียบโอนหน่วยกิต รายวิชาและการลงทะเบียนเรียนข้ามมหาวิทยาลัย", "โครงสร้างหลักสูตร", "รายวิชา — หมวดวิชาศึกษาทั่วไป ก. กลุ่มวิชาภาษา", "รายวิชา — หมวดวิชาศึกษาทั่วไป ข. กลุ่มวิชาบูรณาการ",
+  "รายวิชา — หมวดวิชาศึกษาทั่วไป ค. กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์", "รายวิชา — หมวดวิชาศึกษาทั่วไป ง. กลุ่มวิชาวิทยาศาสตร์และคณิตศาสตร์", "รายวิชา — หมวดวิชาศึกษาทั่วไป จ. กลุ่มวิชากีฬาและนันทนาการ", "รายวิชา — หมวดวิชาเฉพาะ ก. กลุ่มวิชาแกน", "รายวิชา — กลุ่มวิชาชีพ (บังคับเฉพาะแขนง) แขนงวิชาโทรคมนาคม",
+  "รายวิชา — กลุ่มวิชาชีพ (บังคับเฉพาะแขนง) แขนงวิชาคอมพิวเตอร์", "รายวิชา — กลุ่มวิชาชีพ (บังคับเฉพาะแขนง) แขนงวิชาเครื่องมือวัดและควบคุม", "รายวิชา — กลุ่มวิชาชีพ (บังคับเฉพาะแขนง) แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์", "รายวิชา — กลุ่มวิชาชีพ (เลือกเฉพาะแขนง) ทั้ง 4 แขนงวิชา", "รายวิชา — ค. ประสบการณ์ภาคสนามและวิชาชีพ / ง. กลุ่มวิชาฝึกงาน",
+  "รายวิชา — หมวดวิชาเลือกเสรี", "แผนการศึกษา — แขนงวิชาโทรคมนาคม", "แผนการศึกษา — แขนงวิชาคอมพิวเตอร์", "แผนการศึกษา — แขนงวิชาเครื่องมือวัดและควบคุม", "แผนการศึกษา — แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์",
+  "คำอธิบายรายวิชา", "อาจารย์ผู้สอน", "องค์ประกอบเกี่ยวกับประสบการณ์ภาคสนาม", "มาตรฐานผลการเรียนรู้ของประสบการณ์ภาคสนาม", "ช่วงเวลา (ประสบการณ์ภาคสนาม)",
+  "การจัดเวลาและตารางสอน (ประสบการณ์ภาคสนาม)", "ข้อกำหนดเกี่ยวกับการทำโครงงานหรืองานวิจัย", "คำอธิบายโดยย่อ (โครงงานหรืองานวิจัย)", "มาตรฐานผลการเรียนรู้ (โครงงานหรืองานวิจัย)", "ช่วงเวลา (โครงงานหรืองานวิจัย)",
+  "จำนวนหน่วยกิต (โครงงานหรืองานวิจัย)", "การเตรียมการ (โครงงานหรืองานวิจัย)", "กระบวนการประเมินผล (โครงงานหรืองานวิจัย)"
+]
 
-onMounted(() => {
-  if (route.query.id) {
-    programId.value = route.query.id as string
-    // [Backend Task]: ยิง API GET /programs/{id}/courses เพื่อดึงโครงสร้างและ Mapping
-  }
+const form = ref<any>({
+  id: null,
+  sections: Array(43).fill(''),
+  s3_4: { sem1: '', sem2: '', summer: '' },
+  s3_5: [''], s3_6: [''], s3_7: [''], s3_34: [''], s3_35: [''], s3_36: [''],
+  
+  // 🌟 3.8, 3.9, 3.10, 3.13 ตารางตามต้นฉบับ
+  s3_8: [
+    { year: 'ชั้นปีที่ 1', y65: '120', y66: '120', y67: '120', y68: '120', y69: '120' },
+    { year: 'ชั้นปีที่ 2', y65: '-', y66: '120', y67: '120', y68: '120', y69: '120' },
+    { year: 'ชั้นปีที่ 3', y65: '-', y66: '-', y67: '120', y68: '120', y69: '120' },
+    { year: 'ชั้นปีที่ 4', y65: '-', y66: '-', y67: '-', y68: '120', y69: '120' },
+    { year: 'รวม', y65: '120', y66: '240', y67: '360', y68: '480', y69: '480' }
+  ],
+  s3_9: [
+    { detail: 'งบประมาณรายได้', y65: '4,032,000', y66: '4,112,640', y67: '4,194,893', y68: '4,278,790', y69: '4,364,367' },
+    { detail: 'งบประมาณแผ่นดิน', y65: '12,680,248', y66: '12,933,853', y67: '13,192,531', y68: '13,456,381', y69: '13,725,508' },
+    { detail: 'รวมรายรับ', y65: '16,712,248', y66: '17,046,493', y67: '17,387,423', y68: '17,735,171', y69: '18,089,875' }
+  ],
+  s3_10: [
+    { category: 'ก. งบดำเนินการ', y65: '', y66: '', y67: '', y68: '', y69: '' },
+    { category: '— เงินเดือน', y65: '10,698,960', y66: '10,912,939', y67: '11,131,198', y68: '11,353,821', y69: '11,580,898' },
+    { category: '— ค่าตอบแทน', y65: '2,239,200', y66: '2,246,400', y67: '2,253,744', y68: '2,261,235', y69: '2,268,875' },
+    { category: '— ค่าสอนพิเศษ', y65: '1,700,000', y66: '1,731,000', y67: '1,762,530', y68: '1,794,598', y69: '1,827,211' },
+    { category: '— ค่าใช้สอย', y65: '300,000', y66: '300,000', y67: '300,000', y68: '300,000', y69: '300,000' },
+    { category: '— ค่าวัสดุ', y65: '300,000', y66: '300,000', y67: '300,000', y68: '300,000', y69: '300,000' },
+    { category: 'รวม (ก)', y65: '15,238,160', y66: '15,490,339', y67: '15,747,472', y68: '16,009,654', y69: '16,276,985' },
+    { category: 'ข. งบลงทุน — ค่าครุภัณฑ์', y65: '500,000', y66: '500,000', y67: '500,000', y68: '500,000', y69: '500,000' },
+    { category: 'รวม (ข)', y65: '500,000', y66: '500,000', y67: '500,000', y68: '500,000', y69: '500,000' },
+    { category: 'รวม (ก) + (ข)', y65: '16,600,703', y66: '16,867,628', y67: '17,139,801', y68: '17,417,325', y69: '17,700,303' }
+  ],
+  s3_13: [
+    { group: '1) หมวดวิชาศึกษาทั่วไป', credits: '30' },
+    { group: ' ก. กลุ่มวิชาภาษา', credits: '12' },
+    { group: ' ข. กลุ่มวิชาบูรณาการ', credits: '3' },
+    { group: ' ค. กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', credits: '9' },
+    { group: ' ง. กลุ่มวิชาวิทยาศาสตร์และคณิตศาสตร์', credits: '3' },
+    { group: ' จ. กลุ่มวิชากีฬาและนันทนาการ', credits: '3' },
+    { group: '2) หมวดวิชาเฉพาะ', credits: '111' },
+    { group: ' ก. กลุ่มวิชาแกน', credits: '32' },
+    { group: ' ข. กลุ่มวิชาชีพ', credits: '73' },
+    { group: ' ค. วิชาประสบการณ์ภาคสนามและวิชาชีพ', credits: '6' },
+    { group: '3) หมวดวิชาเลือกเสรี', credits: '6' }
+  ],
+
+  // 3.14 - 3.25 รายวิชา
+  subjects: [
+    [{ code: '080103001', credits: '3(3-0-6)', nameTh: 'ภาษาอังกฤษ 1', nameEn: 'English I', note: 'บังคับ' }],
+    [{ code: '080303701', credits: '3(3-0-6)', nameTh: 'กระบวนการคิดเชิงออกแบบ', nameEn: 'Design Thinking', note: '' }],
+    [{ code: '080203904', credits: '3(3-0-6)', nameTh: 'กฎหมายในชีวิตประจำวัน', nameEn: 'Law for Everyday Life', note: '' }],
+    [{ code: '040503001', credits: '3(3-0-6)', nameTh: 'สถิติในชีวิตประจำวัน', nameEn: 'Statistics in Everyday Life', note: '' }],
+    [{ code: '080303501', credits: '1(0-2-1)', nameTh: 'บาสเกตบอล', nameEn: 'Basketball', note: '' }],
+    [{ code: '040203111', credits: '3(3-0-6)', nameTh: 'คณิตศาสตร์วิศวกรรม 1', nameEn: 'Engineering Mathematics I', note: '' }],
+    [{ code: '030513120', credits: '3(3-0-6)', nameTh: 'สัญญาณและระบบ', nameEn: 'Signal and System', note: '' }],
+    [{ code: '030513122', credits: '3(3-0-6)', nameTh: 'คณิตศาสตร์ไม่ต่อเนื่อง', nameEn: 'Discrete Mathematics', note: '' }],
+    [{ code: '030513144', credits: '3(2-2-5)', nameTh: 'การสื่อสารแบบบัสในทางอุตสาหกรรม', nameEn: 'Industrial Bus Communication', note: '' }],
+    [{ code: '030513141', credits: '3(3-0-6)', nameTh: 'วิศวกรรมวิทยุและโทรทัศน์', nameEn: 'Radio and Television Engineering', note: '' }],
+    [{ code: '030513164', credits: '3(3-0-6)', nameTh: 'การกระจายคลื่นวิทยุ', nameEn: 'Radio Wave Propagation', note: '' }],
+    [{ code: '030513260', credits: '6(540 ชั่วโมง)', nameTh: 'สหกิจศึกษา', nameEn: 'Co-operative Education', note: '' }]
+  ],
+
+  // 3.27 - 3.30 แผนการศึกษา
+  s3_27: [
+    { sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' },
+    { sem: 'ปีที่ 1 / ภาค 1', code: '040203111', name: 'คณิตศาสตร์วิศวกรรม 1', credit: '3(3-0-6)' }
+  ],
+  s3_28: [{ sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' }],
+  s3_29: [{ sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' }],
+  s3_30: [{ sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' }],
+
+  // 3.31 คำอธิบายรายวิชา
+  s3_31: [
+    { code: '030103300', credit: '3(2-2-5)', nameTh: 'การเขียนแบบวิศวกรรม', nameEn: 'Engineering Drawing', prereq: 'ไม่มี', descTh: 'มาตรฐานการเขียนแบบวิศวกรรม การเขียนตัวอักษร ฯลฯ', descEn: 'Engineering drawing standards; lettering...' }
+  ],
+
+  // 3.32 อาจารย์ผู้สอน
+  s3_32: [
+    { name: 'นายสมชาย สาลีขาว', position: 'ผู้ช่วยศาสตราจารย์', degree: 'วท.ม. (วิศวกรรมสื่อสาร) มจพ. 2550', research: 'ตามภาคผนวก จ.', loadNow: '6', loadNew: '6' }
+  ]
 })
 
-const categories = ref([{ name: 'หมวดวิชาศึกษาทั่วไป', credits: 30 }, { name: 'หมวดวิชาเฉพาะ', credits: 96 }, { name: 'หมวดวิชาเลือกเสรี', credits: 6 }])
-function addCategory() { categories.value.push({ name: '', credits: 0 }) }
-function removeCategory(i: number) { categories.value.splice(i, 1) }
+// Helper actions
+const addList = (key: string) => { form.value[key].push('') }
+const removeList = (key: string, idx: number) => { form.value[key].splice(idx, 1); if (form.value[key].length === 0) form.value[key].push('') }
 
-interface Subject { id: string; code: string; nameTh: string; nameEn: string; credits: string; isHighlight?: boolean }
-interface Semester { id: string; year: number; term: number; subjects: Subject[] }
-const allSubjects: Subject[] = [{ id: '010313005', code: '010313005', nameEn: 'Physics I', nameTh: 'ฟิสิกส์ I', credits: '3(3-0-6)' }, { id: '010313006', code: '010313006', nameEn: 'Physics Laboratory I', nameTh: 'ปฏิบัติการฟิสิกส์ I', credits: '1(0-2-1)' }, { id: '040203111', code: '040203111', nameEn: 'Engineering Mathematics I', nameTh: 'คณิตศาสตร์วิศวกรรม I', credits: '3(3-0-6)' }, { id: '030543300', code: '030543300', nameEn: 'Electrical and Electronics Drawing', nameTh: 'วงจรไฟฟ้าและอิเล็กทรอนิกส์', credits: '3(2-2-5)', isHighlight: true }, { id: '080103001', code: '080103001', nameEn: 'English I', nameTh: 'ภาษาอังกฤษ I', credits: '3(3-0-6)' }]
-const semesters = ref<Semester[]>([{ id: 's1-1', year: 1, term: 1, subjects: [] }, { id: 's1-2', year: 1, term: 2, subjects: [] }, { id: 's2-1', year: 2, term: 1, subjects: [] }, { id: 's2-2', year: 2, term: 2, subjects: [] }, { id: 's3-1', year: 3, term: 1, subjects: [] }, { id: 's3-2', year: 3, term: 2, subjects: [] }, { id: 's4-1', year: 4, term: 1, subjects: [] }, { id: 's4-2', year: 4, term: 2, subjects: [] }])
+const addTable = (key: string, emptyObj: any) => { form.value[key].push(emptyObj) }
+const removeTable = (key: string, idx: number, emptyObj: any) => { form.value[key].splice(idx,1); if(form.value[key].length === 0) form.value[key].push(emptyObj) }
 
-const showSearch = ref(false); const targetSemId = ref<string | null>(null); const searchQuery = ref(''); const totalCreditsInput = ref<number | null>(null)
-const filteredSubjects = computed(() => { const q = searchQuery.value.trim().toLowerCase(); if (!q) return allSubjects; return allSubjects.filter(s => s.code.includes(q) || s.nameEn.toLowerCase().includes(q) || s.nameTh.includes(q)) })
-function openSearch(semId: string) { targetSemId.value = semId; searchQuery.value = ''; showSearch.value = true }
-function addSubjectToSem(subject: Subject) { const sem = semesters.value.find(s => s.id === targetSemId.value); if (!sem || sem.subjects.find(s => s.id === subject.id)) return; sem.subjects.push({ ...subject }); showSearch.value = false }
-function removeSubject(semId: string, subjectId: string) { const sem = semesters.value.find(s => s.id === semId); if (sem) sem.subjects = sem.subjects.filter(s => s.id !== subjectId) }
-function semCredits(sem: Semester) { return sem.subjects.reduce((acc, s) => acc + (parseInt(s.credits) || 0), 0) }
+const addSubject = (idx: number) => { form.value.subjects[idx].push({ code: '', credit: '', nameTh: '', nameEn: '', note: '' }) }
+const removeSubject = (idx: number, itemIdx: number) => { form.value.subjects[idx].splice(itemIdx, 1); if(form.value.subjects[idx].length === 0) form.value.subjects[idx].push({ code: '', credit: '', nameTh: '', nameEn: '', note: '' }) }
 
-// ================= ระบบบันทึกข้อมูล (Save System) =================
-const isSavingDraft = ref(false)
-const isSavingNext = ref(false)
+const addS3_31 = () => { form.value.s3_31.push({ code: '', credit: '', nameTh: '', nameEn: '', prereq: '', descTh: '', descEn: '' }) }
+const removeS3_31 = (idx: number) => { form.value.s3_31.splice(idx, 1); if(form.value.s3_31.length === 0) form.value.s3_31.push({ code: '', credit: '', nameTh: '', nameEn: '', prereq: '', descTh: '', descEn: '' }) }
 
-const saveDraft = async () => {
-  isSavingDraft.value = true
-  // 💾 DB: บันทึกข้อมูลลง PROGRAM (total_credits), COURSE_CATEGORY และ PROGRAM_COURSE อิงตาม programId.value
-  await new Promise(r => setTimeout(r, 1000))
-  isSavingDraft.value = false
-  alert('บันทึกฉบับร่างเรียบร้อยแล้ว')
+const addS3_32 = () => { form.value.s3_32.push({ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }) }
+const removeS3_32 = (idx: number) => { form.value.s3_32.splice(idx, 1); if(form.value.s3_32.length === 0) form.value.s3_32.push({ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }) }
+
+const doneState = ref<Record<number, boolean>>({})
+const toggleDone = (index: number) => { doneState.value[index] = !doneState.value[index] }
+
+onMounted(() => { if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string } })
+
+const isSavingDraft = ref(false); const isSavingNext = ref(false)
+const saveDraft = async () => { isSavingDraft.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingDraft.value = false; }
+const saveAndNext = async () => { isSavingNext.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingNext.value = false; router.push({ path: '/number4', query: { id: programId.value } }) }
+
+const scrollToSec = (id: string) => {
+  const el = document.getElementById(id)
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('pulse'); setTimeout(() => el.classList.remove('pulse'), 1200) }
 }
-
-const saveAndNext = async () => {
-  isSavingNext.value = true
-  // 💾 DB: บันทึกข้อมูลหน้า 3 ลง Database
-  await new Promise(r => setTimeout(r, 1000))
-  isSavingNext.value = false
-  router.push({ path: '/number4', query: { id: programId.value } })
-}
-// =============================================================
 </script>
 
 <template>
-  <div class="w-full p-4 md:p-6">
-    <UForm class="w-full">
-      <div class="w-full shadow-md border border-gray-200 rounded-2xl overflow-hidden bg-white">
-        
-        <div class="bg-[#1a2744] px-6 py-5 flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-[#c8a84b] flex items-center justify-center text-white font-bold">3</div>
-          <p class="text-white font-bold text-xl tracking-wide font-sans m-0">โครงสร้างหลักสูตร รายวิชา และหน่วยกิต</p>
+  <div class="page-shell">
+    <form @submit.prevent class="w-full">
+      
+      <!-- Breadcrumb & Title -->
+      <div class="crumb">
+        <span>เล่มหลักสูตร</span> › <b class="text-[#1B2A4A] font-semibold">หมวดที่ 3</b>
+        <span class="page-badge">หน้า 4 / 9</span>
+      </div>
+      <div class="doc-head">
+        <div class="doc-eyebrow">หมวดที่ 3</div>
+        <h1 class="doc-title">ระบบการจัดการศึกษา การดำเนินการ และโครงสร้างของหลักสูตร</h1>
+      </div>
+
+      <!-- TOC Card -->
+      <div class="toc-card">
+        <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อกระโดดไปยังหัวข้อ (รวม 43 หัวข้อ)</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[4px_18px] max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+          <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="scrollToSec(`sec-3-${i+1}`)">
+            <div class="toc-dot"></div>
+            <span class="toc-num">3.{{ i + 1 }}</span>
+            <span class="lbl">{{ title }}</span>
+          </div>
         </div>
+      </div>
 
-        <div class="p-6 md:p-8 space-y-8">
-          <!-- ❗❗❗ คอมเมนต์อ้างอิงตาม ER Diagram (image_ed9000.jpg) ❗❗❗ -->
-
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
-            <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 inline-block mb-4 m-0">1. จำนวนหน่วยกิตรวมตลอดหลักสูตร</p>
-            <!-- ✅ DB: ตาราง PROGRAM (total_credits) -->
-            <UFormField label="จำนวนหน่วยกิตรวม" :ui="{ label: 'text-gray-800 font-bold' }">
-              <UInput v-model="totalCreditsInput" type="number" class="w-full md:w-1/3 bg-white" placeholder="เช่น 138" />
-            </UFormField>
+      <!-- Main Paper Card -->
+      <div class="paper-card">
+        
+        <section v-for="(title, i) in sectionTitles" :key="i" :id="`sec-3-${i+1}`" class="topic-sec">
+          
+          <div class="sec-head">
+            <div class="sec-number">3.{{ i + 1 }}</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <h2 class="sec-title pt-1">{{ title }}</h2>
+              <button type="button" class="sec-check" :class="{ 'on': doneState[i] }" @click="toggleDone(i)">
+                {{ doneState[i] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}
+              </button>
+            </div>
           </div>
 
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div class="flex justify-between items-center mb-4">
-              <p class="text-[#1a2744] font-bold text-lg border-b-2 border-[#c8a84b] pb-2 m-0">2. โครงสร้างหลักสูตร</p>
-              <UButton variant="outline" icon="i-heroicons-plus" class="border border-[#1a2744] text-[#1a2744] bg-white hover:bg-gray-50" @click="addCategory">
-                เพิ่มหมวดวิชา
-              </UButton>
-            </div>
+          <div class="sec-body">
             
-            <div v-for="(cat, i) in categories" :key="i" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 items-end bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <!-- ✅ DB: ตาราง COURSE_CATEGORY (program_id, name_th) -->
-              <UFormField label="หมวดวิชา" :ui="{ label: 'text-gray-700 font-bold text-sm' }">
-                <UInput v-model="cat.name" class="w-full bg-white" placeholder="เช่น หมวดวิชาศึกษาทั่วไป" />
-              </UFormField>
-              <div class="flex gap-3 items-end">
-                <!-- ✅ DB: ตาราง COURSE_CATEGORY (required_credits) -->
-                <UFormField label="จำนวนหน่วยกิต" :ui="{ label: 'text-gray-700 font-bold text-sm' }" class="flex-1">
-                  <UInput v-model.number="cat.credits" type="number" class="w-full bg-white" placeholder="30" />
-                </UFormField>
-                <UButton icon="i-heroicons-trash" color="neutral" variant="soft" class="mb-0.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-200" @click="removeCategory(i)" />
+            <!-- 3.4 วัน-เวลา -->
+            <template v-if="i === 3">
+              <div class="fs-grid">
+                <div class="fs-field"><label>ภาคการศึกษาที่ 1</label><input v-model="form.s3_4.sem1" type="text" /></div>
+                <div class="fs-field"><label>ภาคการศึกษาที่ 2</label><input v-model="form.s3_4.sem2" type="text" /></div>
+                <div class="fs-field"><label>ภาคการศึกษาฤดูร้อน</label><input v-model="form.s3_4.summer" type="text" /></div>
               </div>
-            </div>
+            </template>
 
-            <div class="flex justify-between items-center mt-4 bg-[#243360] text-white rounded-lg p-4 shadow-inner">
-              <p class="font-bold text-base m-0">รวมทั้งหมด</p>
-              <p class="font-bold text-xl text-[#e8c96a] m-0">{{ categories.reduce((a, c) => a + (c.credits || 0), 0) }} <span class="text-sm font-normal text-white">หน่วยกิต</span></p>
-            </div>
-          </div>
-
-          <div class="bg-[#faf8f4] p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 border-b-2 border-[#d8d2c6] pb-3">
-              <div class="flex items-center gap-2">
-                <p class="text-[#1a2744] font-bold text-lg m-0">3. แผนการศึกษา (Curriculum Mapping)</p>
-                <UBadge variant="soft" class="font-bold rounded-lg bg-yellow-100 text-yellow-700"><UIcon name="i-heroicons-sparkles" class="mr-1"/> AI Assisted</UBadge>
+            <!-- 3.5, 3.6, 3.7, 3.34, 3.35, 3.36 (List) -->
+            <template v-else-if="[4, 5, 6, 33, 34, 35].includes(i)">
+              <div class="list-editor">
+                <div class="list-row" v-for="(item, idx) in form[`s3_${i+1}`]" :key="idx">
+                  <div class="list-num">{{ idx + 1 }}</div>
+                  <input v-model="form[`s3_${i+1}`][idx]" type="text" />
+                  <button type="button" class="row-del" @click="removeList(`s3_${i+1}`, idx)">✕</button>
+                </div>
+                <button type="button" class="add-row" @click="addList(`s3_${i+1}`)">+ เพิ่มรายการ</button>
               </div>
-              <p class="text-gray-500 text-sm mt-2 md:mt-0 flex items-center gap-1 m-0">
-                <UIcon name="i-heroicons-information-circle" class="w-5 h-5"/> ลากวางเพื่อย้ายวิชาระหว่างภาค
-              </p>
-            </div>
+            </template>
 
-            <!-- ❌ DB: ตาราง PROGRAM_COURSE เชื่อมกับ PROGRAM_SEMESTER และ COURSE -->
-            <div class="overflow-x-auto pb-4 custom-scrollbar w-full">
-              <div class="flex gap-4 min-w-max px-2">
-                <div v-for="sem in semesters" :key="sem.id" class="flex flex-col w-64 shadow-sm">
-                  <div class="bg-[#1a2744] text-white text-center py-2 px-1 rounded-t-lg">
-                    <p class="text-sm font-bold m-0">ปีที่ {{ sem.year }}</p>
-                    <p class="text-xs text-[#e8c96a] m-0">ภาคเรียนที่ {{ sem.term }}</p>
-                  </div>
-                  <VueDraggable v-model="sem.subjects" group="subjects" :animation="200" ghost-class="opacity-30" class="flex-1 min-h-[10rem] bg-white border-x border-gray-200 p-2 space-y-2">
-                    <div v-for="subject in sem.subjects" :key="subject.id" class="relative group rounded-lg border text-xs p-3 cursor-grab active:cursor-grabbing select-none transition-shadow hover:shadow-md" :class="subject.isHighlight ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200'">
-                      <button class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center text-[10px] z-10 shadow-sm" @click.stop="removeSubject(sem.id, subject.id)">✕</button>
-                      <p class="font-mono font-bold text-blue-900 text-xs mb-1 m-0">{{ subject.code }}</p>
-                      <p class="font-medium leading-tight line-clamp-2 text-gray-800 text-xs mb-2 m-0">{{ subject.nameEn }}</p>
-                      <UBadge color="neutral" variant="solid" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 border border-gray-200">{{ subject.credits }}</UBadge>
-                    </div>
-                  </VueDraggable>
-                  <div class="bg-gray-50 border border-t-0 border-gray-200 rounded-b-lg px-3 py-2 flex items-center justify-between">
-                    <span class="text-xs text-gray-600 font-bold m-0">{{ semCredits(sem) }} <span class="font-normal text-[10px]">หน่วยกิต</span></span>
-                    <UButton icon="i-heroicons-plus" size="sm" color="neutral" variant="soft" class="rounded-full bg-white shadow-sm hover:bg-gray-100 border border-gray-200" @click="openSearch(sem.id)" />
-                  </div>
+            <!-- 3.8 แผนการรับนักศึกษา -->
+            <template v-else-if="i === 7">
+              <table class="builder">
+                <thead><tr><th>ระดับชั้นปี</th><th>2565</th><th>2566</th><th>2567</th><th>2568</th><th>2569</th><th style="width:40px"></th></tr></thead>
+                <tbody>
+                  <tr v-for="(row, idx) in form.s3_8" :key="idx">
+                    <td><input v-model="row.year" type="text"></td><td><input v-model="row.y65" type="text"></td><td><input v-model="row.y66" type="text"></td>
+                    <td><input v-model="row.y67" type="text"></td><td><input v-model="row.y68" type="text"></td><td><input v-model="row.y69" type="text"></td>
+                    <td><button type="button" class="table-del" @click="removeTable('s3_8', idx, {year:'',y65:'',y66:'',y67:'',y68:'',y69:''})">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addTable('s3_8', {year:'',y65:'',y66:'',y67:'',y68:'',y69:''})">+ เพิ่มแถว</button>
+            </template>
+
+            <!-- 3.9 งบประมาณรายรับ -->
+            <template v-else-if="i === 8">
+              <table class="builder">
+                <thead><tr><th>รายละเอียดรายรับ</th><th>2565</th><th>2566</th><th>2567</th><th>2568</th><th>2569</th><th style="width:40px"></th></tr></thead>
+                <tbody>
+                  <tr v-for="(row, idx) in form.s3_9" :key="idx">
+                    <td><input v-model="row.detail" type="text"></td><td><input v-model="row.y65" type="text"></td><td><input v-model="row.y66" type="text"></td>
+                    <td><input v-model="row.y67" type="text"></td><td><input v-model="row.y68" type="text"></td><td><input v-model="row.y69" type="text"></td>
+                    <td><button type="button" class="table-del" @click="removeTable('s3_9', idx, {detail:'',y65:'',y66:'',y67:'',y68:'',y69:''})">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addTable('s3_9', {detail:'',y65:'',y66:'',y67:'',y68:'',y69:''})">+ เพิ่มแถว</button>
+            </template>
+
+            <!-- 3.10 งบประมาณรายจ่าย -->
+            <template v-else-if="i === 9">
+              <table class="builder">
+                <thead><tr><th>หมวดเงิน</th><th>2565</th><th>2566</th><th>2567</th><th>2568</th><th>2569</th><th style="width:40px"></th></tr></thead>
+                <tbody>
+                  <tr v-for="(row, idx) in form.s3_10" :key="idx">
+                    <td><input v-model="row.category" type="text"></td><td><input v-model="row.y65" type="text"></td><td><input v-model="row.y66" type="text"></td>
+                    <td><input v-model="row.y67" type="text"></td><td><input v-model="row.y68" type="text"></td><td><input v-model="row.y69" type="text"></td>
+                    <td><button type="button" class="table-del" @click="removeTable('s3_10', idx, {category:'',y65:'',y66:'',y67:'',y68:'',y69:''})">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addTable('s3_10', {category:'',y65:'',y66:'',y67:'',y68:'',y69:''})">+ เพิ่มแถว</button>
+            </template>
+
+            <!-- 3.13 โครงสร้างหลักสูตร -->
+            <template v-else-if="i === 12">
+              <table class="builder">
+                <thead><tr><th>หมวดวิชา / กลุ่มวิชา</th><th>หน่วยกิต</th><th style="width:40px"></th></tr></thead>
+                <tbody>
+                  <tr v-for="(row, idx) in form.s3_13" :key="idx">
+                    <td><input v-model="row.group" type="text"></td><td><input v-model="row.credits" type="text"></td>
+                    <td><button type="button" class="table-del" @click="removeTable('s3_13', idx, {group:'',credits:''})">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addTable('s3_13', {group:'',credits:''})">+ เพิ่มแถว</button>
+            </template>
+
+            <!-- 3.14 - 3.25 รายวิชาในหมวดต่างๆ -->
+            <template v-else-if="i >= 13 && i <= 24">
+              <div v-for="(subj, itemIdx) in form.subjects[i-13]" :key="itemIdx" class="slist-item">
+                <div class="slist-num">{{ itemIdx + 1 }}</div>
+                <div class="slist-fields fs-grid">
+                  <div class="fs-field"><label>รหัสวิชา</label><input v-model="subj.code" type="text" /></div>
+                  <div class="fs-field"><label>หน่วยกิต</label><input v-model="subj.credit" type="text" /></div>
+                  <div class="fs-field"><label>ชื่อวิชา <span class="lang-tag">ภาษาไทย</span></label><input v-model="subj.nameTh" type="text" /></div>
+                  <div class="fs-field"><label>Subject Name <span class="lang-tag">English</span></label><input v-model="subj.nameEn" type="text" /></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>หมายเหตุ</label><input v-model="subj.note" type="text" /></div>
+                </div>
+                <button type="button" class="slist-del" @click="removeSubject(i-13, itemIdx)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addSubject(i-13)">+ เพิ่มรายวิชา</button>
+            </template>
+
+            <!-- 3.27 - 3.30 แผนการศึกษา -->
+            <template v-else-if="i >= 26 && i <= 29">
+              <table class="builder">
+                <thead><tr><th>ปีที่/ภาคการศึกษา</th><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>หน่วยกิต</th><th style="width:40px"></th></tr></thead>
+                <tbody>
+                  <tr v-for="(row, idx) in form[`s3_${i+1}`]" :key="idx">
+                    <td><input v-model="row.sem" type="text"></td><td><input v-model="row.code" type="text"></td>
+                    <td><input v-model="row.name" type="text"></td><td><input v-model="row.credit" type="text"></td>
+                    <td><button type="button" class="table-del" @click="removeTable(`s3_${i+1}`, idx, {sem:'',code:'',name:'',credit:''})">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addTable(`s3_${i+1}`, {sem:'',code:'',name:'',credit:''})">+ เพิ่มวิชา</button>
+            </template>
+
+            <!-- 3.31 คำอธิบายรายวิชา -->
+            <template v-else-if="i === 30">
+              <div v-for="(item, idx) in form.s3_31" :key="idx" class="slist-item">
+                <div class="slist-num">{{ idx + 1 }}</div>
+                <div class="slist-fields fs-grid">
+                  <div class="fs-field"><label>รหัสวิชา</label><input v-model="item.code" type="text" /></div>
+                  <div class="fs-field"><label>หน่วยกิต</label><input v-model="item.credit" type="text" /></div>
+                  <div class="fs-field"><label>ชื่อวิชา <span class="lang-tag">ภาษาไทย</span></label><input v-model="item.nameTh" type="text" /></div>
+                  <div class="fs-field"><label>Subject Name <span class="lang-tag">English</span></label><input v-model="item.nameEn" type="text" /></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>วิชาบังคับก่อน</label><input v-model="item.prereq" type="text" /></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>คำอธิบายรายวิชา (ไทย)</label><textarea v-model="item.descTh" class="field"></textarea></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>Course Description (English)</label><textarea v-model="item.descEn" class="field"></textarea></div>
+                </div>
+                <button type="button" class="slist-del" @click="removeS3_31(idx)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addS3_31()">+ เพิ่มคำอธิบายรายวิชา</button>
+            </template>
+
+            <!-- 3.32 อาจารย์ผู้สอน -->
+            <template v-else-if="i === 31">
+              <div v-for="(item, idx) in form.s3_32" :key="idx" class="slist-item">
+                <div class="slist-num">{{ idx + 1 }}</div>
+                <div class="slist-fields fs-grid">
+                  <div class="fs-field"><label>ชื่อ-นามสกุล</label><input v-model="item.name" type="text" /></div>
+                  <div class="fs-field"><label>ตำแหน่งทางวิชาการ</label><input v-model="item.position" type="text" /></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>คุณวุฒิ (สาขาวิชา) — สถาบัน/ประเทศ — ปี พ.ศ.</label><textarea v-model="item.degree" class="field" style="min-height: 60px;"></textarea></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>ผลงานทางวิชาการ</label><input v-model="item.research" type="text" /></div>
+                  <div class="fs-field"><label>ภาระสอนเดิม (ชม./สัปดาห์)</label><input v-model="item.loadNow" type="text" /></div>
+                  <div class="fs-field"><label>ภาระสอนใหม่ (ชม./สัปดาห์)</label><input v-model="item.loadNew" type="text" /></div>
+                </div>
+                <button type="button" class="slist-del" @click="removeS3_32(idx)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addS3_32()">+ เพิ่มอาจารย์ผู้สอน</button>
+            </template>
+
+            <!-- ข้ออื่นๆ (Textarea) -->
+            <template v-else>
+              <div class="fs-grid full">
+                <div class="fs-field">
+                  <textarea v-model="form.sections[i]" class="field" :placeholder="`ระบุข้อมูล ${title}...`"></textarea>
                 </div>
               </div>
-            </div>
-          </div>
+            </template>
 
-          <!-- ปุ่ม Action -->
-          <div class="pt-6 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 mt-8">
-            <UButton :to="`/number2?id=${programId || ''}`" variant="ghost" class="text-gray-500 hover:text-[#1a2744] px-6 py-3 text-base bg-white hover:bg-gray-100 rounded-xl transition-colors border border-gray-200 w-full md:w-auto text-center justify-center">← ย้อนกลับ</UButton>
-            <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-              <UButton color="neutral" variant="outline" class="px-6 py-3 text-base font-bold rounded-xl border-gray-300 hover:bg-gray-50 bg-white justify-center" :loading="isSavingDraft" @click="saveDraft()">
-                <UIcon name="i-heroicons-document-text" class="mr-2 w-5 h-5" /> บันทึกฉบับร่าง
-              </UButton>
-              <UButton class="bg-[#1a2744] hover:bg-[#243360] text-white px-8 py-3 text-lg font-bold rounded-xl shadow-lg transition-transform hover:-translate-y-1 justify-center" :loading="isSavingNext" @click="saveAndNext()">
-                บันทึกและถัดไป <UIcon name="i-heroicons-arrow-right" class="ml-2 w-5 h-5"/>
-              </UButton>
-            </div>
           </div>
+        </section>
 
+      </div>
+
+      <!-- Action Footer -->
+      <div class="page-footer">
+        <button type="button" @click="router.push(`/number2?id=${programId || ''}`)" class="nav-btn">
+          ← <span>ข้อมูลเฉพาะของหลักสูตร</span>
+        </button>
+        <div class="flex flex-col md:flex-row gap-3">
+          <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
+            <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
+          </button>
+          <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'ผลการเรียนรู้ กลยุทธ์การสอน' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
+          </button>
         </div>
       </div>
-    </UForm>
+
+    </form>
   </div>
-
-  <!-- Search Modal -->
-  <UModal v-model:open="showSearch" title="ค้นหารายวิชา" :ui="{ content: 'max-w-2xl' }">
-    <template #body>
-      <UInput v-model="searchQuery" placeholder="ค้นหารหัสวิชา หรือชื่อวิชา..." icon="i-heroicons-magnifying-glass" autofocus size="lg" class="mb-4" />
-      <div class="max-h-96 overflow-y-auto space-y-2 pr-1">
-        <div v-for="subject in filteredSubjects" :key="subject.id" class="flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-all" @click="addSubjectToSem(subject)">
-          <div class="flex items-center gap-3">
-            <UBadge :label="subject.code" color="neutral" :class="subject.isHighlight ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'" variant="soft" size="sm" />
-            <div>
-              <p class="font-bold text-sm text-gray-900 m-0">{{ subject.nameEn }}</p>
-              <p class="text-xs text-gray-500 m-0">{{ subject.nameTh }}</p>
-            </div>
-          </div>
-          <UBadge :label="subject.credits" color="neutral" variant="solid" size="sm" class="bg-gray-100 text-gray-700 border border-gray-200" />
-        </div>
-        <div v-if="filteredSubjects.length === 0" class="text-center py-10 text-gray-400">
-          <UIcon name="i-heroicons-magnifying-glass" class="w-8 h-8 mx-auto mb-2" />
-          <p class="text-sm m-0">ไม่พบรายวิชาที่ค้นหา</p>
-        </div>
-      </div>
-    </template>
-  </UModal>
 </template>
+
+<style scoped>
+/* ================== CSS สไตล์เดียวกับหน้าอื่นเพื่อความต่อเนื่อง ================== */
+.force-white-btn { color: #ffffff !important; }
+
+.page-shell { max-width: 900px; margin: 0 auto; width: 100%; }
+
+.crumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #736F60; margin-bottom: 14px; }
+.crumb b { color: #1B2A4A; font-weight: 600; }
+.page-badge { margin-left: auto; font-size: 11px; color: #A8793B; border: 1px solid #EEE0C6; background: #fff; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
+
+.doc-head { margin-bottom: 20px; }
+.doc-eyebrow { font-size: 12.5px; color: #A8793B; font-weight: 700; letter-spacing: .03em; margin-bottom: 6px; }
+.doc-title { font-size: 25px; font-weight: 600; color: #1B2A4A; margin: 0; font-family: 'Noto Serif Thai', serif; }
+
+.toc-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 18px 24px 20px; margin-bottom: 18px; }
+.toc-label { font-size: 11.5px; color: #A8793B; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; }
+.toc-item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #26241E; border: 1px solid transparent; transition: all 0.2s; }
+.toc-item:hover { background: #F3EFE4; }
+.toc-num { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 12.5px; min-width: 24px; flex: none; }
+.toc-dot { width: 7px; height: 7px; border-radius: 50%; background: #E3DCC9; flex: none; transition: background 0.2s; }
+.toc-item.filled .toc-dot { background: #3F6B52; }
+.toc-item span.lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.paper-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 8px 42px 20px; position: relative; }
+
+.topic-sec { padding: 26px 0 30px; border-bottom: 1px solid #E3DCC9; position: relative; }
+.topic-sec:last-child { border-bottom: none; }
+.topic-sec.pulse { animation: pulseSec 1.1s ease; }
+@keyframes pulseSec { 0% { background: #EEE0C6; } 100% { background: transparent; } }
+
+.sec-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 17px; min-width: 32px; flex: none; }
+.sec-title { font-size: 16.5px; font-weight: 600; color: #1B2A4A; flex: 1; margin: 0; line-height: 1.4; }
+.sec-check { flex: none; border: 1px solid #E3DCC9; background: #fff; color: #736F60; border-radius: 7px; padding: 6px 12px; font-size: 11.8px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
+.sec-check.on { background: #E4EEE7 !important; border-color: #3F6B52 !important; color: #3F6B52 !important; }
+.sec-body { padding-left: 44px; }
+@media (max-width:720px){ .sec-body { padding-left: 0; } }
+
+.fs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.fs-grid.full { grid-template-columns: 1fr; }
+.fs-field label { display: block; font-size: 12.6px; font-weight: 600; color: #1B2A4A; margin-bottom: 6px; }
+.fs-field label .lang-tag { font-size: 10.6px; font-weight: 500; background: #EEF1F9; color: #4D5FA8; padding: 1px 7px; border-radius: 4px; margin-left: 6px; }
+
+/* Input, Select, Textarea */
+.fs-field input[type=text], .fs-field input[type=number], .fs-field select, textarea.field {
+  width: 100%; border: 1px solid #E3DCC9 !important; border-radius: 8px !important; 
+  padding: 9px 12px !important; font-size: 13.6px !important; background: #FEFDFA !important; 
+  color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; transition: all 0.2s; 
+}
+textarea.field { min-height: 100px; resize: vertical; line-height: 1.7; }
+.fs-field input:focus, .fs-field select:focus, textarea.field:focus { 
+  outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; 
+}
+
+/* Dynamic List Editor */
+.list-editor .list-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+.list-num { width: 24px; height: 24px; flex: none; margin-top: 3px; border-radius: 50%; background: #F3EFE4; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; color: #1B2A4A; font-family: 'Noto Serif Thai', serif; }
+.list-row input { flex: 1; border: 1px solid #E3DCC9 !important; border-radius: 7px !important; padding: 9px 12px !important; font-size: 13.8px !important; background: #FEFDFA !important; box-shadow: none !important; outline: none !important; }
+.list-row input:focus { border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; }
+.row-del { width: 30px; height: 30px; flex: none; border: 1px solid #E3DCC9; background: #fff; border-radius: 7px; color: #9C4132; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+.row-del:hover { background: #FBECE8; }
+.add-row { margin-top: 6px; border: 1px dashed #C9BFA2; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
+.add-row:hover { background: #EEE0C6; }
+
+/* Structured List */
+.slist-item { display: flex; gap: 12px; align-items: flex-start; background: #F3EFE4; border: 1px solid #E3DCC9; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.slist-num { width: 26px; height: 26px; flex: none; border-radius: 50%; background: #1B2A4A; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 2px; font-family: 'Noto Serif Thai', serif; }
+.slist-fields { flex: 1; min-width: 0; }
+.slist-fields .fs-grid { margin-bottom: 0; }
+.slist-fields .fs-field { margin-bottom: 10px; }
+.slist-fields .fs-field:last-child { margin-bottom: 0; }
+.slist-fields .fs-field input, .slist-fields .fs-field select, .slist-fields .fs-field textarea { background: #fff !important; }
+.slist-del { flex: none; border: none; background: none; color: #9C4132; font-size: 17px; margin-top: 2px; border-radius: 5px; padding: 3px 6px; cursor: pointer; transition: 0.2s; }
+.slist-del:hover { background: #FBECE8; }
+
+/* Table Builder */
+table.builder { width: 100%; border-collapse: collapse; margin-top: 4px; }
+table.builder th { background: #1B2A4A; color: #EFE7D6; font-size: 12.3px; font-weight: 600; text-align: left; padding: 9px 12px; border: 1px solid #1B2A4A; }
+table.builder td { border: 1px solid #E3DCC9; padding: 5px 6px; }
+table.builder td input { width: 100%; border: 1px solid transparent !important; background: transparent !important; padding: 6px 8px !important; font-size: 13.4px !important; border-radius: 5px !important; }
+table.builder td input:focus { outline: none !important; border-color: #A8793B !important; background: #EEE0C6 !important; }
+table.builder tr:nth-child(even) td { background: #FCFAF4; }
+.table-del { border: none; background: none; color: #9C4132; font-size: 14px; width: 100%; text-align: center; cursor: pointer;}
+
+.page-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
+.nav-btn { border: 1px solid #E3DCC9; background: #fff; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #1B2A4A; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; }
+.nav-btn:hover:not([disabled]) { border-color: #A8793B; color: #A8793B; }
+.nav-btn[disabled] { opacity: .35; pointer-events: none; }
+
+.btn-brass { background: #1B2A4A; transition: all 0.2s; }
+.btn-brass:hover { background: #2C3E63; }
+</style>
