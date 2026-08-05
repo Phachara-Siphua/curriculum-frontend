@@ -94,7 +94,7 @@
           
           <NuxtLink to="/appendix/a" class="group border-b border-[rgba(255,255,255,0.09)] flex items-center gap-[10px] px-[16px] py-[11px] hover:bg-white/5" active-class="bg-[rgba(168,121,59,0.15)] !border-l-[3px] !border-l-[#A8793B] !border-b-[rgba(255,255,255,0.09)] border-l-transparent">
             <div class="w-[24px] h-[24px] flex-none rounded-full border border-white/25 flex items-center justify-center text-[11.5px] font-semibold text-[#DCE2EF] font-['Noto_Serif_Thai'] group-[.router-link-active]:bg-[#A8793B] group-[.router-link-active]:border-[#A8793B] group-[.router-link-active]:!text-white transition-colors">ก</div>
-            <div class="flex-1 text-[13.2px] leading-[1.3] text-[#E4E8F1] group-[.router-link-active]:!text-white group-[.router-link-active]:font-semibold transition-colors">แผนภูมิแสดงความต่อเนื่องของหลักสูตร (ReactFlow)</div>
+            <div class="flex-1 text-[13.2px] leading-[1.3] text-[#E4E8F1] group-[.router-link-active]:!text-white group-[.router-link-active]:font-semibold transition-colors">แผนภูมิแสดงความต่อเนื่องของหลักสูตร</div>
           </NuxtLink>
           <NuxtLink to="/appendix/b" class="group border-b border-[rgba(255,255,255,0.09)] flex items-center gap-[10px] px-[16px] py-[11px] hover:bg-white/5" active-class="bg-[rgba(168,121,59,0.15)] !border-l-[3px] !border-l-[#A8793B] !border-b-[rgba(255,255,255,0.09)] border-l-transparent">
             <div class="w-[24px] h-[24px] flex-none rounded-full border border-white/25 flex items-center justify-center text-[11.5px] font-semibold text-[#DCE2EF] font-['Noto_Serif_Thai'] group-[.router-link-active]:bg-[#A8793B] group-[.router-link-active]:border-[#A8793B] group-[.router-link-active]:!text-white transition-colors">ข</div>

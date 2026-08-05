@@ -25,30 +25,29 @@ const sectionTitles = [
 // ================= State ข้อมูลฟอร์ม =================
 const form = ref<any>({
   id: null,
-  // 4.1
   s4_1: [{ trait: '', strategy: '' }],
-  // 4.2 - 4.6
   s4_2: { outcomes: '', strategy: '', assessment: '' },
   s4_3: { outcomes: '', strategy: '', assessment: '' },
   s4_4: { outcomes: '', strategy: '', assessment: '' },
   s4_5: { outcomes: '', strategy: '', assessment: '' },
   s4_6: { outcomes: '', strategy: '', assessment: '' },
-  // 4.7
   s4_7: { d1: '', d2: '', d3: '', d4: '', d5: '' },
-  // 4.8
   s4_8: '',
-  // 4.9
   s4_9: [{ code: '', type: '', desc: '' }],
-  // 4.10
   s4_10: [{ code: '', branch: '', desc: '' }],
-  // 4.11
   s4_11: [{ code: '', d1: '', d2: '', d3: '', d4: '', d5: '' }],
-  // 4.12 Curriculum Mapping State
   mapState: {} as Record<string, string>
 })
 
 const eloTypes = ['S — เฉพาะทาง (Specific)', 'G — ทั่วไป (General)']
 const branchOptions = ['แขนงวิชาโทรคมนาคม (T)', 'แขนงวิชาคอมพิวเตอร์ (C)', 'แขนงวิชาเครื่องมือวัดและควบคุม (I)', 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์ (B)']
+
+// ================= AI Integration =================
+const handleAIGenerate = (section: string, payload?: any) => {
+  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
+  console.log('Trigger AI Generation for:', section, payload)
+  alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\n(รอ Backend เชื่อมต่อ API)`)
+}
 
 // ================= Helper Functions =================
 const addList = (key: string, emptyObj: any) => { form.value[key].push({...emptyObj}) }
@@ -128,10 +127,7 @@ const cycleCell = (key: string) => {
           <div class="sec-head">
             <div class="sec-number">4.1</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-              <div class="flex items-center gap-2">
-                <h2 class="sec-title pt-1">{{ sectionTitles[0] }}</h2>
-                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
-              </div>
+              <h2 class="sec-title pt-1">{{ sectionTitles[0] }}</h2>
               <button type="button" class="sec-check" :class="{ 'on': doneState[0] }" @click="toggleDone(0)">{{ doneState[0] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
             </div>
           </div>
@@ -186,69 +182,83 @@ const cycleCell = (key: string) => {
           </div>
         </section>
 
-        <!-- 4.8 ELO ตามกรอบมาตรฐาน -->
-        <section class="topic-sec" id="sec-4-8">
+        <!-- 4.8 ELO ตามกรอบมาตรฐาน (มีปุ่ม AI) -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-8">
           <div class="sec-head">
             <div class="sec-number">4.8</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-              <h2 class="sec-title pt-1">{{ sectionTitles[7] }}</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">{{ sectionTitles[7] }}</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
               <button type="button" class="sec-check" :class="{ 'on': doneState[7] }" @click="toggleDone(7)">{{ doneState[7] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
             </div>
           </div>
-          <div class="sec-body">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
             <div class="fs-grid full">
-              <div class="fs-field"><textarea v-model="form.s4_8" class="field"></textarea></div>
+              <div class="fs-field">
+                <textarea v-model="form.s4_8" class="field bg-white" style="min-height: 80px;"></textarea>
+                <button type="button" class="ai-btn mt-2" @click="handleAIGenerate('elo_standard')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่าง ELO มาตรฐาน</button>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- 4.9 ผลการเรียนรู้ที่คาดหวังหลัก -->
-        <section class="topic-sec" id="sec-4-9">
+        <!-- 4.9 ผลการเรียนรู้ที่คาดหวังหลัก (มีปุ่ม AI) -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-9">
           <div class="sec-head">
             <div class="sec-number">4.9</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-              <h2 class="sec-title pt-1">{{ sectionTitles[8] }}</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">{{ sectionTitles[8] }}</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
               <button type="button" class="sec-check" :class="{ 'on': doneState[8] }" @click="toggleDone(8)">{{ doneState[8] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
             </div>
           </div>
-          <div class="sec-body">
-            <div v-for="(item, idx) in form.s4_9" :key="idx" class="slist-item">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+            <div v-for="(item, idx) in form.s4_9" :key="idx" class="slist-item !bg-white">
               <div class="slist-num">{{ idx + 1 }}</div>
               <div class="slist-fields fs-grid">
-                <div class="fs-field"><label>รหัส ELO</label><input v-model="item.code" type="text" placeholder="เช่น ELO1"/></div>
+                <div class="fs-field"><label>รหัส ELO</label><input v-model="item.code" type="text" class="!bg-[#FEFDFA]" placeholder="เช่น ELO1"/></div>
                 <div class="fs-field"><label>ประเภท</label>
-                  <select v-model="item.type"><option value="" disabled>-- เลือกประเภท --</option><option v-for="t in eloTypes" :key="t" :value="t">{{ t }}</option></select>
+                  <select v-model="item.type" class="!bg-[#FEFDFA]"><option value="" disabled>-- เลือกประเภท --</option><option v-for="t in eloTypes" :key="t" :value="t">{{ t }}</option></select>
                 </div>
-                <div class="fs-field" style="grid-column: 1 / -1;"><label>รายละเอียด</label><textarea v-model="item.desc" class="field" style="min-height:60px"></textarea></div>
+                <div class="fs-field" style="grid-column: 1 / -1;"><label>รายละเอียด</label><textarea v-model="item.desc" class="field !bg-[#FEFDFA]" style="min-height:60px"></textarea></div>
               </div>
               <button type="button" class="slist-del" @click="removeList('s4_9', idx, {code:'', type:'', desc:''})">✕</button>
             </div>
             <button type="button" class="add-row" @click="addList('s4_9', {code:'', type:'', desc:''})">+ เพิ่ม ELO หลัก</button>
+            <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('elo_main')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยคิด ELO หลัก</button>
           </div>
         </section>
 
-        <!-- 4.10 ผลการเรียนรู้ที่คาดหวังเฉพาะแขนง -->
-        <section class="topic-sec" id="sec-4-10">
+        <!-- 4.10 ผลการเรียนรู้ที่คาดหวังเฉพาะแขนง (มีปุ่ม AI) -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-10">
           <div class="sec-head">
             <div class="sec-number">4.10</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-              <h2 class="sec-title pt-1">{{ sectionTitles[9] }}</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">{{ sectionTitles[9] }}</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
               <button type="button" class="sec-check" :class="{ 'on': doneState[9] }" @click="toggleDone(9)">{{ doneState[9] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
             </div>
           </div>
-          <div class="sec-body">
-            <div v-for="(item, idx) in form.s4_10" :key="idx" class="slist-item">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+            <div v-for="(item, idx) in form.s4_10" :key="idx" class="slist-item !bg-white">
               <div class="slist-num">{{ idx + 1 }}</div>
               <div class="slist-fields fs-grid">
-                <div class="fs-field"><label>รหัส ELO</label><input v-model="item.code" type="text" placeholder="เช่น ELO T.1"/></div>
+                <div class="fs-field"><label>รหัส ELO</label><input v-model="item.code" type="text" class="!bg-[#FEFDFA]" placeholder="เช่น ELO T.1"/></div>
                 <div class="fs-field"><label>แขนงวิชา</label>
-                  <select v-model="item.branch"><option value="" disabled>-- เลือกแขนง --</option><option v-for="b in branchOptions" :key="b" :value="b">{{ b }}</option></select>
+                  <select v-model="item.branch" class="!bg-[#FEFDFA]"><option value="" disabled>-- เลือกแขนง --</option><option v-for="b in branchOptions" :key="b" :value="b">{{ b }}</option></select>
                 </div>
-                <div class="fs-field" style="grid-column: 1 / -1;"><label>รายละเอียด</label><textarea v-model="item.desc" class="field" style="min-height:60px"></textarea></div>
+                <div class="fs-field" style="grid-column: 1 / -1;"><label>รายละเอียด</label><textarea v-model="item.desc" class="field !bg-[#FEFDFA]" style="min-height:60px"></textarea></div>
               </div>
               <button type="button" class="slist-del" @click="removeList('s4_10', idx, {code:'', branch:'', desc:''})">✕</button>
             </div>
             <button type="button" class="add-row" @click="addList('s4_10', {code:'', branch:'', desc:''})">+ เพิ่ม ELO เฉพาะแขนง</button>
+            <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('elo_branch')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยคิด ELO แขนงวิชา</button>
           </div>
         </section>
 
@@ -292,12 +302,15 @@ const cycleCell = (key: string) => {
           </div>
         </section>
 
-        <!-- 4.12 Curriculum Mapping -->
+        <!-- 4.12 Curriculum Mapping (มีปุ่ม AI) -->
         <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-12">
           <div class="sec-head">
             <div class="sec-number">4.12</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-              <h2 class="sec-title pt-1">{{ sectionTitles[11] }}</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">{{ sectionTitles[11] }}</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
               <button type="button" class="sec-check" :class="{ 'on': doneState[11] }" @click="toggleDone(11)">{{ doneState[11] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
             </div>
           </div>
@@ -308,6 +321,8 @@ const cycleCell = (key: string) => {
               <div class="it"><div class="chip i">○</div> ความรับผิดชอบรอง</div>
               <div class="it text-[#736F60]">คลิกที่ช่องตารางเพื่อสลับสถานะ: ว่าง → ○ → ● → ว่าง</div>
             </div>
+
+            <button type="button" class="ai-btn mb-4" @click="handleAIGenerate('curriculum_mapping')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยประเมินและทำ Mapping อัตโนมัติ</button>
 
             <div class="map-scroll custom-scrollbar">
               <table class="mapping">
@@ -367,7 +382,7 @@ const cycleCell = (key: string) => {
 </template>
 
 <style scoped>
-/* ================== CSS ถอดแบบ 100% จาก Mockup HTML ================== */
+/* ================== CSS สไตล์เดียวกับหน้าอื่นเพื่อความต่อเนื่อง ================== */
 .force-white-btn { color: #ffffff !important; }
 
 .page-shell { max-width: 900px; margin: 0 auto; width: 100%; }
@@ -417,9 +432,14 @@ const cycleCell = (key: string) => {
   color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; transition: all 0.2s; 
 }
 textarea.field { min-height: 100px; resize: vertical; line-height: 1.7; }
+.fs-field select { cursor: pointer; }
 .fs-field input:focus, .fs-field select:focus, textarea.field:focus { 
   outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; 
 }
+
+/* AI Button */
+.ai-btn { margin-top: 6px; border: 1px solid #A8793B; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
+.ai-btn:hover { background: #EEE0C6; }
 
 /* Structured List */
 .slist-item { display: flex; gap: 12px; align-items: flex-start; background: #F3EFE4; border: 1px solid #E3DCC9; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }

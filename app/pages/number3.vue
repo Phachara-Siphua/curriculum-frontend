@@ -1,13 +1,12 @@
 <!-- pages/number3.vue -->
 <script setup lang="ts">
-import { VueDraggable } from 'vue-draggable-plus'
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
 const programId = ref<string | null>(null)
 
-// รายชื่อหัวข้อทั้ง 43 หัวข้อตามมาตรฐาน มคอ.2
+// รายชื่อหัวข้อทั้ง 43 หัวข้อ
 const sectionTitles = [
   "ระบบ", "การจัดการศึกษาภาคฤดูร้อน", "การเทียบเคียงหน่วยกิตในระบบทวิภาค", "วัน-เวลาในการดำเนินการเรียนการสอน", "คุณสมบัติของผู้เข้าศึกษา",
   "ปัญหาของนักศึกษาแรกเข้า", "กลยุทธ์ในการดำเนินการเพื่อแก้ไขปัญหาของนักศึกษาแรกเข้า", "แผนการรับนักศึกษาและผู้สำเร็จการศึกษาในระยะ 5 ปี", "งบประมาณรายรับ", "งบประมาณรายจ่าย",
@@ -20,88 +19,33 @@ const sectionTitles = [
   "จำนวนหน่วยกิต (โครงงานหรืองานวิจัย)", "การเตรียมการ (โครงงานหรืองานวิจัย)", "กระบวนการประเมินผล (โครงงานหรืองานวิจัย)"
 ]
 
+// ================= State ข้อมูลฟอร์ม =================
 const form = ref<any>({
   id: null,
   sections: Array(43).fill(''),
   s3_4: { sem1: '', sem2: '', summer: '' },
   s3_5: [''], s3_6: [''], s3_7: [''], s3_34: [''], s3_35: [''], s3_36: [''],
-  
-  // 🌟 3.8, 3.9, 3.10, 3.13 ตารางตามต้นฉบับ
-  s3_8: [
-    { year: 'ชั้นปีที่ 1', y65: '120', y66: '120', y67: '120', y68: '120', y69: '120' },
-    { year: 'ชั้นปีที่ 2', y65: '-', y66: '120', y67: '120', y68: '120', y69: '120' },
-    { year: 'ชั้นปีที่ 3', y65: '-', y66: '-', y67: '120', y68: '120', y69: '120' },
-    { year: 'ชั้นปีที่ 4', y65: '-', y66: '-', y67: '-', y68: '120', y69: '120' },
-    { year: 'รวม', y65: '120', y66: '240', y67: '360', y68: '480', y69: '480' }
-  ],
-  s3_9: [
-    { detail: 'งบประมาณรายได้', y65: '4,032,000', y66: '4,112,640', y67: '4,194,893', y68: '4,278,790', y69: '4,364,367' },
-    { detail: 'งบประมาณแผ่นดิน', y65: '12,680,248', y66: '12,933,853', y67: '13,192,531', y68: '13,456,381', y69: '13,725,508' },
-    { detail: 'รวมรายรับ', y65: '16,712,248', y66: '17,046,493', y67: '17,387,423', y68: '17,735,171', y69: '18,089,875' }
-  ],
-  s3_10: [
-    { category: 'ก. งบดำเนินการ', y65: '', y66: '', y67: '', y68: '', y69: '' },
-    { category: '— เงินเดือน', y65: '10,698,960', y66: '10,912,939', y67: '11,131,198', y68: '11,353,821', y69: '11,580,898' },
-    { category: '— ค่าตอบแทน', y65: '2,239,200', y66: '2,246,400', y67: '2,253,744', y68: '2,261,235', y69: '2,268,875' },
-    { category: '— ค่าสอนพิเศษ', y65: '1,700,000', y66: '1,731,000', y67: '1,762,530', y68: '1,794,598', y69: '1,827,211' },
-    { category: '— ค่าใช้สอย', y65: '300,000', y66: '300,000', y67: '300,000', y68: '300,000', y69: '300,000' },
-    { category: '— ค่าวัสดุ', y65: '300,000', y66: '300,000', y67: '300,000', y68: '300,000', y69: '300,000' },
-    { category: 'รวม (ก)', y65: '15,238,160', y66: '15,490,339', y67: '15,747,472', y68: '16,009,654', y69: '16,276,985' },
-    { category: 'ข. งบลงทุน — ค่าครุภัณฑ์', y65: '500,000', y66: '500,000', y67: '500,000', y68: '500,000', y69: '500,000' },
-    { category: 'รวม (ข)', y65: '500,000', y66: '500,000', y67: '500,000', y68: '500,000', y69: '500,000' },
-    { category: 'รวม (ก) + (ข)', y65: '16,600,703', y66: '16,867,628', y67: '17,139,801', y68: '17,417,325', y69: '17,700,303' }
-  ],
-  s3_13: [
-    { group: '1) หมวดวิชาศึกษาทั่วไป', credits: '30' },
-    { group: ' ก. กลุ่มวิชาภาษา', credits: '12' },
-    { group: ' ข. กลุ่มวิชาบูรณาการ', credits: '3' },
-    { group: ' ค. กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์', credits: '9' },
-    { group: ' ง. กลุ่มวิชาวิทยาศาสตร์และคณิตศาสตร์', credits: '3' },
-    { group: ' จ. กลุ่มวิชากีฬาและนันทนาการ', credits: '3' },
-    { group: '2) หมวดวิชาเฉพาะ', credits: '111' },
-    { group: ' ก. กลุ่มวิชาแกน', credits: '32' },
-    { group: ' ข. กลุ่มวิชาชีพ', credits: '73' },
-    { group: ' ค. วิชาประสบการณ์ภาคสนามและวิชาชีพ', credits: '6' },
-    { group: '3) หมวดวิชาเลือกเสรี', credits: '6' }
-  ],
-
-  // 3.14 - 3.25 รายวิชา
-  subjects: [
-    [{ code: '080103001', credits: '3(3-0-6)', nameTh: 'ภาษาอังกฤษ 1', nameEn: 'English I', note: 'บังคับ' }],
-    [{ code: '080303701', credits: '3(3-0-6)', nameTh: 'กระบวนการคิดเชิงออกแบบ', nameEn: 'Design Thinking', note: '' }],
-    [{ code: '080203904', credits: '3(3-0-6)', nameTh: 'กฎหมายในชีวิตประจำวัน', nameEn: 'Law for Everyday Life', note: '' }],
-    [{ code: '040503001', credits: '3(3-0-6)', nameTh: 'สถิติในชีวิตประจำวัน', nameEn: 'Statistics in Everyday Life', note: '' }],
-    [{ code: '080303501', credits: '1(0-2-1)', nameTh: 'บาสเกตบอล', nameEn: 'Basketball', note: '' }],
-    [{ code: '040203111', credits: '3(3-0-6)', nameTh: 'คณิตศาสตร์วิศวกรรม 1', nameEn: 'Engineering Mathematics I', note: '' }],
-    [{ code: '030513120', credits: '3(3-0-6)', nameTh: 'สัญญาณและระบบ', nameEn: 'Signal and System', note: '' }],
-    [{ code: '030513122', credits: '3(3-0-6)', nameTh: 'คณิตศาสตร์ไม่ต่อเนื่อง', nameEn: 'Discrete Mathematics', note: '' }],
-    [{ code: '030513144', credits: '3(2-2-5)', nameTh: 'การสื่อสารแบบบัสในทางอุตสาหกรรม', nameEn: 'Industrial Bus Communication', note: '' }],
-    [{ code: '030513141', credits: '3(3-0-6)', nameTh: 'วิศวกรรมวิทยุและโทรทัศน์', nameEn: 'Radio and Television Engineering', note: '' }],
-    [{ code: '030513164', credits: '3(3-0-6)', nameTh: 'การกระจายคลื่นวิทยุ', nameEn: 'Radio Wave Propagation', note: '' }],
-    [{ code: '030513260', credits: '6(540 ชั่วโมง)', nameTh: 'สหกิจศึกษา', nameEn: 'Co-operative Education', note: '' }]
-  ],
-
-  // 3.27 - 3.30 แผนการศึกษา
-  s3_27: [
-    { sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' },
-    { sem: 'ปีที่ 1 / ภาค 1', code: '040203111', name: 'คณิตศาสตร์วิศวกรรม 1', credit: '3(3-0-6)' }
-  ],
-  s3_28: [{ sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' }],
-  s3_29: [{ sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' }],
-  s3_30: [{ sem: 'ปีที่ 1 / ภาค 1', code: '030103300', name: 'การเขียนแบบวิศวกรรม', credit: '3(2-2-5)' }],
-
-  // 3.31 คำอธิบายรายวิชา
-  s3_31: [
-    { code: '030103300', credit: '3(2-2-5)', nameTh: 'การเขียนแบบวิศวกรรม', nameEn: 'Engineering Drawing', prereq: 'ไม่มี', descTh: 'มาตรฐานการเขียนแบบวิศวกรรม การเขียนตัวอักษร ฯลฯ', descEn: 'Engineering drawing standards; lettering...' }
-  ],
-
-  // 3.32 อาจารย์ผู้สอน
-  s3_32: [
-    { name: 'นายสมชาย สาลีขาว', position: 'ผู้ช่วยศาสตราจารย์', degree: 'วท.ม. (วิศวกรรมสื่อสาร) มจพ. 2550', research: 'ตามภาคผนวก จ.', loadNow: '6', loadNew: '6' }
-  ]
+  s3_8: [{ year: 'ชั้นปีที่ 1', y65: '120', y66: '120', y67: '120', y68: '120', y69: '120' }],
+  s3_9: [{ detail: 'งบประมาณรายได้', y65: '4,032,000', y66: '4,112,640', y67: '4,194,893', y68: '4,278,790', y69: '4,364,367' }],
+  s3_10: [{ category: 'ก. งบดำเนินการ', y65: '', y66: '', y67: '', y68: '', y69: '' }],
+  s3_13: [{ group: '1) หมวดวิชาศึกษาทั่วไป', credits: '30' }],
+  subjects: Array(12).fill(null).map(() => [{ code: '', credit: '', nameTh: '', nameEn: '', note: '' }]),
+  s3_27: [{ sem: 'ปีที่ 1 / ภาค 1', code: '', name: '', credit: '' }],
+  s3_28: [{ sem: 'ปีที่ 1 / ภาค 1', code: '', name: '', credit: '' }],
+  s3_29: [{ sem: 'ปีที่ 1 / ภาค 1', code: '', name: '', credit: '' }],
+  s3_30: [{ sem: 'ปีที่ 1 / ภาค 1', code: '', name: '', credit: '' }],
+  s3_31: [{ code: '', credit: '', nameTh: '', nameEn: '', prereq: '', descTh: '', descEn: '' }],
+  s3_32: [{ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }]
 })
 
-// Helper actions
+// ================= AI Integration =================
+const handleAIGenerate = (section: string, payload?: any) => {
+  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
+  console.log('Trigger AI Generation for:', section, payload)
+  alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\nข้อมูลอ้างอิง: ${payload || 'ไม่มี'}\n(รอ Backend เชื่อมต่อ API)`)
+}
+
+// ================= Helper Functions =================
 const addList = (key: string) => { form.value[key].push('') }
 const removeList = (key: string, idx: number) => { form.value[key].splice(idx, 1); if (form.value[key].length === 0) form.value[key].push('') }
 
@@ -161,19 +105,22 @@ const scrollToSec = (id: string) => {
       <!-- Main Paper Card -->
       <div class="paper-card">
         
-        <section v-for="(title, i) in sectionTitles" :key="i" :id="`sec-3-${i+1}`" class="topic-sec">
+        <section v-for="(title, i) in sectionTitles" :key="i" :id="`sec-3-${i+1}`" :class="['topic-sec', i===30 ? 'border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]' : '']">
           
           <div class="sec-head">
             <div class="sec-number">3.{{ i + 1 }}</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-              <h2 class="sec-title pt-1">{{ title }}</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">{{ title }}</h2>
+                <span v-if="i===30" class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
               <button type="button" class="sec-check" :class="{ 'on': doneState[i] }" @click="toggleDone(i)">
                 {{ doneState[i] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}
               </button>
             </div>
           </div>
 
-          <div class="sec-body">
+          <div :class="['sec-body', i===30 ? 'md:pl-[56px] mt-4 md:mt-0' : '']">
             
             <!-- 3.4 วัน-เวลา -->
             <template v-if="i === 3">
@@ -198,7 +145,7 @@ const scrollToSec = (id: string) => {
 
             <!-- 3.8 แผนการรับนักศึกษา -->
             <template v-else-if="i === 7">
-              <table class="builder">
+              <table class="builder bg-white">
                 <thead><tr><th>ระดับชั้นปี</th><th>2565</th><th>2566</th><th>2567</th><th>2568</th><th>2569</th><th style="width:40px"></th></tr></thead>
                 <tbody>
                   <tr v-for="(row, idx) in form.s3_8" :key="idx">
@@ -213,7 +160,7 @@ const scrollToSec = (id: string) => {
 
             <!-- 3.9 งบประมาณรายรับ -->
             <template v-else-if="i === 8">
-              <table class="builder">
+              <table class="builder bg-white">
                 <thead><tr><th>รายละเอียดรายรับ</th><th>2565</th><th>2566</th><th>2567</th><th>2568</th><th>2569</th><th style="width:40px"></th></tr></thead>
                 <tbody>
                   <tr v-for="(row, idx) in form.s3_9" :key="idx">
@@ -228,7 +175,7 @@ const scrollToSec = (id: string) => {
 
             <!-- 3.10 งบประมาณรายจ่าย -->
             <template v-else-if="i === 9">
-              <table class="builder">
+              <table class="builder bg-white">
                 <thead><tr><th>หมวดเงิน</th><th>2565</th><th>2566</th><th>2567</th><th>2568</th><th>2569</th><th style="width:40px"></th></tr></thead>
                 <tbody>
                   <tr v-for="(row, idx) in form.s3_10" :key="idx">
@@ -243,7 +190,7 @@ const scrollToSec = (id: string) => {
 
             <!-- 3.13 โครงสร้างหลักสูตร -->
             <template v-else-if="i === 12">
-              <table class="builder">
+              <table class="builder bg-white">
                 <thead><tr><th>หมวดวิชา / กลุ่มวิชา</th><th>หน่วยกิต</th><th style="width:40px"></th></tr></thead>
                 <tbody>
                   <tr v-for="(row, idx) in form.s3_13" :key="idx">
@@ -273,7 +220,7 @@ const scrollToSec = (id: string) => {
 
             <!-- 3.27 - 3.30 แผนการศึกษา -->
             <template v-else-if="i >= 26 && i <= 29">
-              <table class="builder">
+              <table class="builder bg-white">
                 <thead><tr><th>ปีที่/ภาคการศึกษา</th><th>รหัสวิชา</th><th>ชื่อวิชา</th><th>หน่วยกิต</th><th style="width:40px"></th></tr></thead>
                 <tbody>
                   <tr v-for="(row, idx) in form[`s3_${i+1}`]" :key="idx">
@@ -286,18 +233,21 @@ const scrollToSec = (id: string) => {
               <button type="button" class="add-row" @click="addTable(`s3_${i+1}`, {sem:'',code:'',name:'',credit:''})">+ เพิ่มวิชา</button>
             </template>
 
-            <!-- 3.31 คำอธิบายรายวิชา -->
+            <!-- 3.31 คำอธิบายรายวิชา (มีปุ่ม AI) -->
             <template v-else-if="i === 30">
-              <div v-for="(item, idx) in form.s3_31" :key="idx" class="slist-item">
+              <div v-for="(item, idx) in form.s3_31" :key="idx" class="slist-item !bg-white">
                 <div class="slist-num">{{ idx + 1 }}</div>
                 <div class="slist-fields fs-grid">
-                  <div class="fs-field"><label>รหัสวิชา</label><input v-model="item.code" type="text" /></div>
-                  <div class="fs-field"><label>หน่วยกิต</label><input v-model="item.credit" type="text" /></div>
-                  <div class="fs-field"><label>ชื่อวิชา <span class="lang-tag">ภาษาไทย</span></label><input v-model="item.nameTh" type="text" /></div>
-                  <div class="fs-field"><label>Subject Name <span class="lang-tag">English</span></label><input v-model="item.nameEn" type="text" /></div>
-                  <div class="fs-field" style="grid-column: 1 / -1;"><label>วิชาบังคับก่อน</label><input v-model="item.prereq" type="text" /></div>
-                  <div class="fs-field" style="grid-column: 1 / -1;"><label>คำอธิบายรายวิชา (ไทย)</label><textarea v-model="item.descTh" class="field"></textarea></div>
-                  <div class="fs-field" style="grid-column: 1 / -1;"><label>Course Description (English)</label><textarea v-model="item.descEn" class="field"></textarea></div>
+                  <div class="fs-field"><label>รหัสวิชา</label><input v-model="item.code" type="text" class="!bg-[#FEFDFA]" /></div>
+                  <div class="fs-field"><label>หน่วยกิต</label><input v-model="item.credit" type="text" class="!bg-[#FEFDFA]" /></div>
+                  <div class="fs-field"><label>ชื่อวิชา <span class="lang-tag">ภาษาไทย</span></label><input v-model="item.nameTh" type="text" class="!bg-[#FEFDFA]" /></div>
+                  <div class="fs-field"><label>Subject Name <span class="lang-tag">English</span></label><input v-model="item.nameEn" type="text" class="!bg-[#FEFDFA]" /></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>วิชาบังคับก่อน</label><input v-model="item.prereq" type="text" class="!bg-[#FEFDFA]" /></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>คำอธิบายรายวิชา (ไทย)</label><textarea v-model="item.descTh" class="field !bg-[#FEFDFA]"></textarea></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;"><label>Course Description (English)</label><textarea v-model="item.descEn" class="field !bg-[#FEFDFA]"></textarea></div>
+                  <div class="fs-field" style="grid-column: 1 / -1;">
+                    <button type="button" @click="handleAIGenerate('course_description', item.nameTh)" class="ai-btn"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างคำอธิบายวิชานี้</button>
+                  </div>
                 </div>
                 <button type="button" class="slist-del" @click="removeS3_31(idx)">✕</button>
               </div>
@@ -370,9 +320,10 @@ const scrollToSec = (id: string) => {
 
 .toc-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 18px 24px 20px; margin-bottom: 18px; }
 .toc-label { font-size: 11.5px; color: #A8793B; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; }
+.toc-grid { display: grid; gap: 4px 18px; }
 .toc-item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #26241E; border: 1px solid transparent; transition: all 0.2s; }
 .toc-item:hover { background: #F3EFE4; }
-.toc-num { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 12.5px; min-width: 24px; flex: none; }
+.toc-num { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 12.5px; min-width: 28px; flex: none; }
 .toc-dot { width: 7px; height: 7px; border-radius: 50%; background: #E3DCC9; flex: none; transition: background 0.2s; }
 .toc-item.filled .toc-dot { background: #3F6B52; }
 .toc-item span.lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -385,12 +336,13 @@ const scrollToSec = (id: string) => {
 @keyframes pulseSec { 0% { background: #EEE0C6; } 100% { background: transparent; } }
 
 .sec-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
-.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 17px; min-width: 32px; flex: none; }
+.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 17px; min-width: 44px; flex: none; }
 .sec-title { font-size: 16.5px; font-weight: 600; color: #1B2A4A; flex: 1; margin: 0; line-height: 1.4; }
 .sec-check { flex: none; border: 1px solid #E3DCC9; background: #fff; color: #736F60; border-radius: 7px; padding: 6px 12px; font-size: 11.8px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
 .sec-check.on { background: #E4EEE7 !important; border-color: #3F6B52 !important; color: #3F6B52 !important; }
-.sec-body { padding-left: 44px; }
-@media (max-width:720px){ .sec-body { padding-left: 0; } }
+.sec-hint { font-size: 12.8px; color: #736F60; line-height: 1.7; margin: 2px 0 14px; padding-left: 56px; }
+.sec-body { padding-left: 56px; }
+@media (max-width:720px){ .sec-hint, .sec-body { padding-left: 0; } }
 
 .fs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .fs-grid.full { grid-template-columns: 1fr; }
@@ -404,9 +356,14 @@ const scrollToSec = (id: string) => {
   color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; transition: all 0.2s; 
 }
 textarea.field { min-height: 100px; resize: vertical; line-height: 1.7; }
+.fs-field select { cursor: pointer; }
 .fs-field input:focus, .fs-field select:focus, textarea.field:focus { 
   outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; 
 }
+
+/* AI Button */
+.ai-btn { margin-top: 6px; border: 1px solid #A8793B; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
+.ai-btn:hover { background: #EEE0C6; }
 
 /* Dynamic List Editor */
 .list-editor .list-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }

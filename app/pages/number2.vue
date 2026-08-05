@@ -28,23 +28,26 @@ onMounted(() => {
   }
 })
 
+// ================= AI Integration =================
+const handleAIGenerate = (section: string, payload?: any) => {
+  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
+  console.log('Trigger AI Generation for:', section, payload)
+  alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\n(รอ Backend เชื่อมต่อ API)`)
+}
+
 // ================= List & Table Actions =================
-// 2.3 วัตถุประสงค์
 const addObjective = () => form.value.objectives.push({ code: '', desc: '' })
 const removeObjective = (i: number) => { form.value.objectives.splice(i, 1); if(form.value.objectives.length === 0) form.value.objectives.push({ code: '', desc: '' }) }
 
-// 2.4 จุดเด่น
 const addUniqueness = () => form.value.uniquenessList.push('')
 const removeUniqueness = (i: number) => { form.value.uniquenessList.splice(i, 1); if(form.value.uniquenessList.length === 0) form.value.uniquenessList.push('') }
 
-// 2.5 - 2.8 YLO
 const addYlo = (branch: 'Telecom' | 'Computer' | 'Instrument' | 'Broadcast') => form.value[`ylo${branch}`].push({ year: '', desc: '' })
 const removeYlo = (branch: 'Telecom' | 'Computer' | 'Instrument' | 'Broadcast', i: number) => { 
     form.value[`ylo${branch}`].splice(i, 1); 
     if(form.value[`ylo${branch}`].length === 0) form.value[`ylo${branch}`].push({ year: '', desc: '' }) 
 }
 
-// 2.9 แผนพัฒนาปรับปรุง
 const addDevPlan = () => form.value.devPlans.push({ plan: '', strategy: '', indicator: '' })
 const removeDevPlan = (i: number) => { form.value.devPlans.splice(i, 1); if(form.value.devPlans.length === 0) form.value.devPlans.push({ plan: '', strategy: '', indicator: '' }) }
 
@@ -65,7 +68,6 @@ const saveAndNext = async () => {
   router.push({ path: '/number3', query: { id: form.value.id } })
 }
 
-// ================= UI State =================
 const scrollToSec = (id: string) => {
   const el = document.getElementById(id)
   if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('pulse'); setTimeout(() => el.classList.remove('pulse'), 1200) }
@@ -75,11 +77,6 @@ const doneState = ref({
   s2_1: false, s2_2: false, s2_3: false, s2_4: false, s2_5: false, s2_6: false, s2_7: false, s2_8: false, s2_9: false
 })
 const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key] = !doneState.value[key] }
-
-// ================= AI Mock =================
-const isGenImp = ref(false); const showAiImp = ref(false); const aiImpText = ref('')
-const genImp = async () => { isGenImp.value = true; await new Promise(r => setTimeout(r, 1000)); aiImpText.value = 'เพื่อตอบสนองการขับเคลื่อนเศรษฐกิจด้วยเทคโนโลยี...'; isGenImp.value = false; showAiImp.value = true }
-const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.value = false }
 </script>
 
 <template>
@@ -101,14 +98,14 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
         <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อกระโดดไปยังหัวข้อ</div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-[4px_18px]">
           <div class="toc-item" :class="{ 'filled': doneState.s2_1 }" @click="scrollToSec('sec-2-1')"><div class="toc-dot"></div><span class="toc-num">2.1</span><span class="lbl">ปรัชญาของหลักสูตร</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_2 }" @click="scrollToSec('sec-2-2')"><div class="toc-dot"></div><span class="toc-num">2.2</span><span class="lbl">ความสำคัญของหลักสูตร</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_3 }" @click="scrollToSec('sec-2-3')"><div class="toc-dot"></div><span class="toc-num">2.3</span><span class="lbl">วัตถุประสงค์ของหลักสูตร</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_4 }" @click="scrollToSec('sec-2-4')"><div class="toc-dot"></div><span class="toc-num">2.4</span><span class="lbl">จุดเด่นเฉพาะของหลักสูตร</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_5 }" @click="scrollToSec('sec-2-5')"><div class="toc-dot"></div><span class="toc-num">2.5</span><span class="lbl">ความคาดหวังผลลัพธ์ (YLO) - โทรคมนาคม</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_6 }" @click="scrollToSec('sec-2-6')"><div class="toc-dot"></div><span class="toc-num">2.6</span><span class="lbl">ความคาดหวังผลลัพธ์ (YLO) - คอมพิวเตอร์</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_7 }" @click="scrollToSec('sec-2-7')"><div class="toc-dot"></div><span class="toc-num">2.7</span><span class="lbl">ความคาดหวังผลลัพธ์ (YLO) - วัดและควบคุม</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_8 }" @click="scrollToSec('sec-2-8')"><div class="toc-dot"></div><span class="toc-num">2.8</span><span class="lbl">ความคาดหวังผลลัพธ์ (YLO) - กระจายเสียงฯ</span></div>
-          <div class="toc-item" :class="{ 'filled': doneState.s2_9 }" @click="scrollToSec('sec-2-9')"><div class="toc-dot"></div><span class="toc-num">2.9</span><span class="lbl">แผนพัฒนาปรับปรุง</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_2 }" @click="scrollToSec('sec-2-2')"><div class="toc-dot"></div><span class="toc-num">2.2</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>ความสำคัญของหลักสูตร</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_3 }" @click="scrollToSec('sec-2-3')"><div class="toc-dot"></div><span class="toc-num">2.3</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>วัตถุประสงค์ของหลักสูตร</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_4 }" @click="scrollToSec('sec-2-4')"><div class="toc-dot"></div><span class="toc-num">2.4</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>จุดเด่นเฉพาะของหลักสูตร</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_5 }" @click="scrollToSec('sec-2-5')"><div class="toc-dot"></div><span class="toc-num">2.5</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>ความคาดหวังผลลัพธ์ (YLO) - โทรคมนาคม</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_6 }" @click="scrollToSec('sec-2-6')"><div class="toc-dot"></div><span class="toc-num">2.6</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>ความคาดหวังผลลัพธ์ (YLO) - คอมพิวเตอร์</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_7 }" @click="scrollToSec('sec-2-7')"><div class="toc-dot"></div><span class="toc-num">2.7</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>ความคาดหวังผลลัพธ์ (YLO) - วัดและควบคุม</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_8 }" @click="scrollToSec('sec-2-8')"><div class="toc-dot"></div><span class="toc-num">2.8</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>ความคาดหวังผลลัพธ์ (YLO) - กระจายเสียงฯ</span></div>
+          <div class="toc-item" :class="{ 'filled': doneState.s2_9 }" @click="scrollToSec('sec-2-9')"><div class="toc-dot"></div><span class="toc-num">2.9</span><span class="lbl text-[#A8793B] font-medium"><UIcon name="i-heroicons-sparkles" class="w-3 h-3 mr-1"/>แผนพัฒนาปรับปรุง</span></div>
         </div>
       </div>
 
@@ -129,36 +126,40 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
         </section>
 
         <!-- 2.2 ความสำคัญ -->
-        <section class="topic-sec" id="sec-2-2">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-2">
           <div class="sec-head">
-            <div class="sec-number">2.2</div><h2 class="sec-title">ความสำคัญของหลักสูตร</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_2 }" @click="toggleDone('s2_2')">{{ doneState.s2_2 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.2</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความสำคัญของหลักสูตร</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_2 }" @click="toggleDone('s2_2')">{{ doneState.s2_2 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
             <div class="fs-grid full">
               <div class="fs-field">
                   <textarea v-model="form.importance" class="field" placeholder="ระบุความสำคัญ..."></textarea>
-                  <button type="button" @click="genImp" class="add-row mt-2 text-[12px]"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยเขียน</button>
-                  <div v-if="showAiImp" class="mt-3 p-3 bg-[#FBF9F4] border border-[#A8793B] rounded-[8px] text-[13px]">
-                      <div class="font-bold text-[#A8793B] mb-2 flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> ข้อเสนอแนะจาก AI</div>
-                      <textarea v-model="aiImpText" class="w-full bg-white border border-[#E3DCC9] rounded-[4px] p-2 text-[13px] min-h-[60px]"></textarea>
-                      <div class="mt-2 flex gap-2">
-                          <button type="button" @click="applyAiImp" class="bg-[#1B2A4A] text-white px-3 py-1 rounded-[4px]">แทนที่</button>
-                          <button type="button" @click="showAiImp=false" class="text-[#736F60] px-2 py-1">ยกเลิก</button>
-                      </div>
-                  </div>
+                  <button type="button" @click="handleAIGenerate('importance')" class="ai-btn"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยเขียนความสำคัญ</button>
               </div>
             </div>
           </div>
         </section>
 
         <!-- 2.3 วัตถุประสงค์ -->
-        <section class="topic-sec" id="sec-2-3">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-3">
           <div class="sec-head">
-            <div class="sec-number">2.3</div><h2 class="sec-title">วัตถุประสงค์ของหลักสูตร</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_3 }" @click="toggleDone('s2_3')">{{ doneState.s2_3 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.3</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">วัตถุประสงค์ของหลักสูตร</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_3 }" @click="toggleDone('s2_3')">{{ doneState.s2_3 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
               <div class="slist-item" v-for="(obj, i) in form.objectives" :key="i">
                   <div class="slist-num">{{ i + 1 }}</div>
                   <div class="slist-fields fs-grid">
@@ -168,16 +169,23 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
                   <button type="button" class="slist-del" @click="removeObjective(i)">✕</button>
               </div>
               <button type="button" class="add-row" @click="addObjective()">+ เพิ่มรายการ</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('objectives')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างวัตถุประสงค์</button>
           </div>
         </section>
 
         <!-- 2.4 จุดเด่น -->
-        <section class="topic-sec" id="sec-2-4">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-4">
           <div class="sec-head">
-            <div class="sec-number">2.4</div><h2 class="sec-title">จุดเด่นเฉพาะของหลักสูตร</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_4 }" @click="toggleDone('s2_4')">{{ doneState.s2_4 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.4</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">จุดเด่นเฉพาะของหลักสูตร</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_4 }" @click="toggleDone('s2_4')">{{ doneState.s2_4 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
             <div class="list-editor">
               <div class="list-row" v-for="(item, i) in form.uniquenessList" :key="i">
                 <div class="list-num">{{ i + 1 }}</div>
@@ -185,18 +193,25 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
                 <button type="button" class="row-del" @click="removeUniqueness(i)">✕</button>
               </div>
               <button type="button" class="add-row" @click="addUniqueness()">+ เพิ่มรายการ</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('uniqueness')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยคิดจุดเด่น</button>
             </div>
           </div>
         </section>
 
         <!-- 2.5 YLO โทรคมนาคม -->
-        <section class="topic-sec" id="sec-2-5">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-5">
           <div class="sec-head">
-            <div class="sec-number">2.5</div><h2 class="sec-title">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — แขนงวิชาโทรคมนาคม</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_5 }" @click="toggleDone('s2_5')">{{ doneState.s2_5 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.5</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — โทรคมนาคม</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_5 }" @click="toggleDone('s2_5')">{{ doneState.s2_5 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
-              <table class="builder">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+              <table class="builder bg-white">
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloTelecom" :key="i">
@@ -207,17 +222,24 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Telecom')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_telecom')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
           </div>
         </section>
 
         <!-- 2.6 YLO คอมพิวเตอร์ -->
-        <section class="topic-sec" id="sec-2-6">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-6">
           <div class="sec-head">
-            <div class="sec-number">2.6</div><h2 class="sec-title">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — แขนงวิชาคอมพิวเตอร์</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_6 }" @click="toggleDone('s2_6')">{{ doneState.s2_6 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.6</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — คอมพิวเตอร์</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_6 }" @click="toggleDone('s2_6')">{{ doneState.s2_6 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
-               <table class="builder">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloComputer" :key="i">
@@ -228,17 +250,24 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Computer')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_computer')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
           </div>
         </section>
         
         <!-- 2.7 YLO เครื่องมือวัดและควบคุม -->
-        <section class="topic-sec" id="sec-2-7">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-7">
           <div class="sec-head">
-            <div class="sec-number">2.7</div><h2 class="sec-title">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — แขนงวิชาเครื่องมือวัดและควบคุม</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_7 }" @click="toggleDone('s2_7')">{{ doneState.s2_7 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.7</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — เครื่องมือวัดและควบคุม</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_7 }" @click="toggleDone('s2_7')">{{ doneState.s2_7 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
-               <table class="builder">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloInstrument" :key="i">
@@ -249,17 +278,24 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Instrument')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_instrument')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
           </div>
         </section>
 
         <!-- 2.8 YLO กระจายเสียงฯ -->
-        <section class="topic-sec" id="sec-2-8">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-8">
           <div class="sec-head">
-            <div class="sec-number">2.8</div><h2 class="sec-title">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_8 }" @click="toggleDone('s2_8')">{{ doneState.s2_8 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.8</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — กระจายเสียงวิทยุและโทรทัศน์</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_8 }" @click="toggleDone('s2_8')">{{ doneState.s2_8 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
-               <table class="builder">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloBroadcast" :key="i">
@@ -270,17 +306,24 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Broadcast')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_broadcast')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
           </div>
         </section>
 
         <!-- 2.9 แผนพัฒนาปรับปรุง -->
-        <section class="topic-sec" id="sec-2-9">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-9">
           <div class="sec-head">
-            <div class="sec-number">2.9</div><h2 class="sec-title">แผนพัฒนาปรับปรุง</h2>
-            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_9 }" @click="toggleDone('s2_9')">{{ doneState.s2_9 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            <div class="sec-number">2.9</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">แผนพัฒนาปรับปรุง</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_9 }" @click="toggleDone('s2_9')">{{ doneState.s2_9 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
           </div>
-          <div class="sec-body">
-               <table class="builder">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
                   <thead><tr><th>แผนการพัฒนา/เปลี่ยนแปลง</th><th>กลยุทธ์</th><th>หลักฐาน/ตัวบ่งชี้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(plan, i) in form.devPlans" :key="i">
@@ -292,6 +335,7 @@ const applyAiImp = () => { form.value.importance = aiImpText.value; showAiImp.va
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addDevPlan()">+ เพิ่มแถว</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('dev_plan')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างแผนพัฒนา</button>
           </div>
         </section>
 
@@ -373,12 +417,9 @@ textarea.field { min-height: 100px; resize: vertical; line-height: 1.7; }
   outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; 
 }
 
-/* Radio Group */
-.radio-group { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 2px; }
-.radio-option { display: flex; align-items: center; gap: 7px; padding: 7px 14px; border: 1.4px solid #E3DCC9; border-radius: 20px; cursor: pointer; font-size: 12.8px; color: #26241E; background: #fff; transition: all 0.12s; }
-.radio-option:hover { border-color: #A8793B; }
-.radio-option.sel { border-color: #A8793B; background: #EEE0C6; color: #1B2A4A; font-weight: 600; }
-.radio-option input { accent-color: #A8793B; }
+/* AI Button */
+.ai-btn { margin-top: 6px; border: 1px solid #A8793B; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
+.ai-btn:hover { background: #EEE0C6; }
 
 /* Dynamic List Editor */
 .list-editor .list-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
