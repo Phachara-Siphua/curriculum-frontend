@@ -3,6 +3,22 @@ import { ref, onMounted } from 'vue'
 const route = useRoute()
 const router = useRouter()
 
+<<<<<<< Updated upstream
+=======
+const config = useRuntimeConfig()
+const API_BASE = config.public.apiBase as string
+
+// Same branch labels used for instructors on page 1 — keep these consistent
+// across the app, since `ylo.branch` / `course_category.branch` / etc. all
+// key off this exact text.
+const YLO_BRANCH: Record<'Telecom' | 'Computer' | 'Instrument' | 'Broadcast', string> = {
+  Telecom: 'แขนงวิชาโทรคมนาคม',
+  Computer: 'แขนงวิชาคอมพิวเตอร์',
+  Instrument: 'แขนงวิชาเครื่องมือวัดและควบคุม',
+  Broadcast: 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์'
+}
+
+>>>>>>> Stashed changes
 // ================= State ข้อมูลฟอร์มหน้า 2 =================
 const form = ref({ 
   id: null as string | number | null,
@@ -15,7 +31,78 @@ const form = ref({
   ylos: [{ year: '1', description: '' }] 
 })
 
+<<<<<<< Updated upstream
 // 💾 เมื่อหน้าเว็บโหลด ให้เช็ก id เพื่อดึงข้อมูลเดิมมาโชว์
+=======
+// ================= Load existing program =================
+const isLoading = ref(false)
+const loadError = ref('')
+
+function safeParse(json: string | null | undefined, fallback: any) {
+  if (!json) return fallback
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) && parsed.length ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}
+
+async function loadProgram(id: string | number) {
+  isLoading.value = true
+  loadError.value = ''
+  try {
+    const data: any = await $fetch(`${API_BASE}/programs/${id}`)
+
+    form.value.id = data.id
+    form.value.philosophy = data.philosophy ?? ''
+    form.value.importance = data.importance ?? ''
+
+    // objectives / uniqueness are stored as JSON strings inside
+    // the program's own `objectives` / `uniqueness` text columns
+    form.value.objectives = safeParse(data.objectives, [{ code: '', desc: '' }])
+    form.value.uniquenessList = safeParse(data.uniqueness, [''])
+
+    // YLO by branch — loaded from the real `ylo` table, grouped by branch
+    try {
+      const ylos: any[] = await $fetch(`${API_BASE}/programs/${id}/ylo/`)
+      const byBranch = (branch: string) =>
+        ylos
+          .filter(y => y.branch === branch)
+          .map(y => ({ year: y.year != null ? String(y.year) : '', desc: y.description ?? '' }))
+
+      form.value.yloTelecom = byBranch(YLO_BRANCH.Telecom).length ? byBranch(YLO_BRANCH.Telecom) : [{ year: '', desc: '' }]
+      form.value.yloComputer = byBranch(YLO_BRANCH.Computer).length ? byBranch(YLO_BRANCH.Computer) : [{ year: '', desc: '' }]
+      form.value.yloInstrument = byBranch(YLO_BRANCH.Instrument).length ? byBranch(YLO_BRANCH.Instrument) : [{ year: '', desc: '' }]
+      form.value.yloBroadcast = byBranch(YLO_BRANCH.Broadcast).length ? byBranch(YLO_BRANCH.Broadcast) : [{ year: '', desc: '' }]
+    } catch (err) {
+      console.error('Failed to load YLO', err)
+    }
+
+    form.value.devPlans = data.development_plans?.length
+      ? [...data.development_plans].sort((a: any, b: any) => a.sort_order - b.sort_order).map((p: any) => ({
+          plan: p.plan ?? '', strategy: p.strategy ?? '', indicator: p.indicator ?? ''
+        }))
+      : [{ plan: '', strategy: '', indicator: '' }]
+  } catch (err: any) {
+    console.error('Failed to load program', err)
+
+    const status = err?.response?.status ?? err?.statusCode
+    if (status === 404) {
+      // This program no longer exists — page 2 has nothing to attach to,
+      // so send the user back to page 1 to start over instead of letting
+      // them fill out a form that can never save.
+      loadError.value = 'ไม่พบข้อมูลหลักสูตรนี้แล้ว กำลังพากลับไปหน้า 1'
+      router.replace({ path: '/number1' })
+    } else {
+      loadError.value = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่'
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+>>>>>>> Stashed changes
 onMounted(() => {
   if (route.query.id) {
     form.value.id = route.query.id as string
@@ -66,8 +153,26 @@ const closeAiYlo = () => { showAiYlo.value = false }
 const addPlo = () => { form.value.plos.push({ code: '', domain: 'ด้านความรู้ (Knowledge)', description: '' }) }
 const removePlo = (index: number) => { form.value.plos.splice(index, 1) }
 
+<<<<<<< Updated upstream
 const addYlo = () => { form.value.ylos.push({ year: '', description: '' }) }
 const removeYlo = (index: number) => { form.value.ylos.splice(index, 1) }
+=======
+  // 2.5 - 2.8 — YLO by branch, real rows in the `ylo` table
+  const yloItems = [
+    ...form.value.yloTelecom.map(y => ({ ...y, branch: YLO_BRANCH.Telecom })),
+    ...form.value.yloComputer.map(y => ({ ...y, branch: YLO_BRANCH.Computer })),
+    ...form.value.yloInstrument.map(y => ({ ...y, branch: YLO_BRANCH.Instrument })),
+    ...form.value.yloBroadcast.map(y => ({ ...y, branch: YLO_BRANCH.Broadcast }))
+  ]
+    .filter(y => y.year.toString().trim() || y.desc.trim())
+    .map(y => ({
+      year: y.year ? Number(y.year) : null,
+      description: y.desc || null,
+      branch: y.branch
+    }))
+
+  await replaceChildren(id, 'ylo', yloItems)
+>>>>>>> Stashed changes
 
 // ================= ระบบบันทึกข้อมูล (Save System) =================
 const isSavingDraft = ref(false)
@@ -288,6 +393,258 @@ const saveAndNext = async () => {
 
         </div>
       </div>
+<<<<<<< Updated upstream
     </UForm>
+=======
+
+      <!-- Main Paper Card -->
+      <div class="paper-card">
+        
+        <!-- 2.1 ปรัชญา -->
+        <section class="topic-sec" id="sec-2-1">
+          <div class="sec-head">
+            <div class="sec-number">2.1</div><h2 class="sec-title">ปรัชญาของหลักสูตร</h2>
+            <button type="button" class="sec-check" :class="{ 'on': doneState.s2_1 }" @click="toggleDone('s2_1')">{{ doneState.s2_1 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+          </div>
+          <div class="sec-body">
+            <div class="fs-grid full">
+              <div class="fs-field"><textarea v-model="form.philosophy" class="field" placeholder="ระบุปรัชญา..."></textarea></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2.2 ความสำคัญ -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-2">
+          <div class="sec-head">
+            <div class="sec-number">2.2</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความสำคัญของหลักสูตร</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_2 }" @click="toggleDone('s2_2')">{{ doneState.s2_2 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+            <div class="fs-grid full">
+              <div class="fs-field">
+                  <textarea v-model="form.importance" class="field" placeholder="ระบุความสำคัญ..."></textarea>
+                  <button type="button" @click="handleAIGenerate('importance')" class="ai-btn"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยเขียนความสำคัญ</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2.3 วัตถุประสงค์ -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-3">
+          <div class="sec-head">
+            <div class="sec-number">2.3</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">วัตถุประสงค์ของหลักสูตร</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_3 }" @click="toggleDone('s2_3')">{{ doneState.s2_3 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+              <div class="slist-item" v-for="(obj, i) in form.objectives" :key="i">
+                  <div class="slist-num">{{ i + 1 }}</div>
+                  <div class="slist-fields fs-grid">
+                      <div class="fs-field" style="grid-column: span 1;"><label>ข้อที่</label><input v-model="obj.code" type="text"></div>
+                      <div class="fs-field full" style="grid-column: 1 / -1;"><label>รายละเอียด</label><textarea v-model="obj.desc" class="field" style="min-height:60px"></textarea></div>
+                  </div>
+                  <button type="button" class="slist-del" @click="removeObjective(i)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addObjective()">+ เพิ่มรายการ</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('objectives')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างวัตถุประสงค์</button>
+          </div>
+        </section>
+
+        <!-- 2.4 จุดเด่น -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-4">
+          <div class="sec-head">
+            <div class="sec-number">2.4</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">จุดเด่นเฉพาะของหลักสูตร</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_4 }" @click="toggleDone('s2_4')">{{ doneState.s2_4 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+            <div class="list-editor">
+              <div class="list-row" v-for="(item, i) in form.uniquenessList" :key="i">
+                <div class="list-num">{{ i + 1 }}</div>
+                <input v-model="form.uniquenessList[i]" type="text" placeholder="ระบุจุดเด่น..." />
+                <button type="button" class="row-del" @click="removeUniqueness(i)">✕</button>
+              </div>
+              <button type="button" class="add-row" @click="addUniqueness()">+ เพิ่มรายการ</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('uniqueness')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยคิดจุดเด่น</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2.5 YLO โทรคมนาคม -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-5">
+          <div class="sec-head">
+            <div class="sec-number">2.5</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — โทรคมนาคม</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_5 }" @click="toggleDone('s2_5')">{{ doneState.s2_5 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+              <table class="builder bg-white">
+                  <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
+                  <tbody>
+                      <tr v-for="(ylo, i) in form.yloTelecom" :key="i">
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
+                          <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
+                          <td><button type="button" class="table-del" @click="removeYlo('Telecom', i)">✕</button></td>
+                      </tr>
+                  </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addYlo('Telecom')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_telecom')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+          </div>
+        </section>
+
+        <!-- 2.6 YLO คอมพิวเตอร์ -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-6">
+          <div class="sec-head">
+            <div class="sec-number">2.6</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — คอมพิวเตอร์</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_6 }" @click="toggleDone('s2_6')">{{ doneState.s2_6 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
+                  <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
+                  <tbody>
+                      <tr v-for="(ylo, i) in form.yloComputer" :key="i">
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
+                          <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
+                          <td><button type="button" class="table-del" @click="removeYlo('Computer', i)">✕</button></td>
+                      </tr>
+                  </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addYlo('Computer')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_computer')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+          </div>
+        </section>
+        
+        <!-- 2.7 YLO เครื่องมือวัดและควบคุม -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-7">
+          <div class="sec-head">
+            <div class="sec-number">2.7</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — เครื่องมือวัดและควบคุม</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_7 }" @click="toggleDone('s2_7')">{{ doneState.s2_7 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
+                  <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
+                  <tbody>
+                      <tr v-for="(ylo, i) in form.yloInstrument" :key="i">
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
+                          <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
+                          <td><button type="button" class="table-del" @click="removeYlo('Instrument', i)">✕</button></td>
+                      </tr>
+                  </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addYlo('Instrument')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_instrument')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+          </div>
+        </section>
+
+        <!-- 2.8 YLO กระจายเสียงฯ -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-8">
+          <div class="sec-head">
+            <div class="sec-number">2.8</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">ความคาดหวังของผลลัพธ์การเรียนรู้ (YLO) — กระจายเสียงวิทยุและโทรทัศน์</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_8 }" @click="toggleDone('s2_8')">{{ doneState.s2_8 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
+                  <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
+                  <tbody>
+                      <tr v-for="(ylo, i) in form.yloBroadcast" :key="i">
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
+                          <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
+                          <td><button type="button" class="table-del" @click="removeYlo('Broadcast', i)">✕</button></td>
+                      </tr>
+                  </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addYlo('Broadcast')">+ เพิ่มชั้นปี</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_broadcast')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+          </div>
+        </section>
+
+        <!-- 2.9 แผนพัฒนาปรับปรุง -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-2-9">
+          <div class="sec-head">
+            <div class="sec-number">2.9</div>
+            <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">แผนพัฒนาปรับปรุง</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
+              <button type="button" class="sec-check" :class="{ 'on': doneState.s2_9 }" @click="toggleDone('s2_9')">{{ doneState.s2_9 ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
+            </div>
+          </div>
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
+               <table class="builder bg-white">
+                  <thead><tr><th>แผนการพัฒนา/เปลี่ยนแปลง</th><th>กลยุทธ์</th><th>หลักฐาน/ตัวบ่งชี้</th><th style="width:40px"></th></tr></thead>
+                  <tbody>
+                      <tr v-for="(plan, i) in form.devPlans" :key="i">
+                          <td><input v-model="plan.plan" type="text"></td>
+                          <td><input v-model="plan.strategy" type="text"></td>
+                          <td><input v-model="plan.indicator" type="text"></td>
+                          <td><button type="button" class="table-del" @click="removeDevPlan(i)">✕</button></td>
+                      </tr>
+                  </tbody>
+              </table>
+              <button type="button" class="add-row" @click="addDevPlan()">+ เพิ่มแถว</button>
+              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('dev_plan')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างแผนพัฒนา</button>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Action Footer -->
+      <div class="page-footer">
+        <button type="button" @click="router.push(`/number1?id=${form.id || ''}`)" class="nav-btn">
+          ← <span>ข้อมูลทั่วไป</span>
+        </button>
+        <div class="flex flex-col md:flex-row gap-3">
+          <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
+            <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
+          </button>
+          <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'ระบบการจัดการศึกษา' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
+          </button>
+        </div>
+      </div>
+
+    </form>
+>>>>>>> Stashed changes
   </div>
 </template>
