@@ -4,6 +4,12 @@ import { ref, onMounted } from 'vue'
 const route = useRoute()
 const router = useRouter()
 
+// Base URL of the FastAPI backend.
+// Set this in nuxt.config.ts:
+//   runtimeConfig: { public: { apiBase: 'http://localhost:8000' } }
+const config = useRuntimeConfig()
+const API_BASE = config.public.apiBase as string
+
 // ================= State ข้อมูลฟอร์มหน้า 1 =================
 const form = ref({
   id: null as string | number | null, 
@@ -17,8 +23,8 @@ const form = ref({
   totalCredits: '',
   // 1.5
   format: '', ptype: '', language: 'ภาษาไทย', admission: '', cooperation: '', degreeGrant: '',
-  // 1.6
-  approvals: [{ body: '', date: '', note: '' }],
+  // 1.6 — field names match the backend's `committee` / `approval_date` columns
+  approvals: [{ committee: '', approvalDate: '', note: '' }],
   // 1.7
   readiness: '',
   // 1.8
@@ -38,10 +44,89 @@ const form = ref({
 const positionOptions = ['ศาสตราจารย์', 'รองศาสตราจารย์', 'ผู้ช่วยศาสตราจารย์', 'อาจารย์']
 const branchOptions = ['แขนงวิชาโทรคมนาคม', 'แขนงวิชาคอมพิวเตอร์', 'แขนงวิชาเครื่องมือวัดและควบคุม', 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์']
 
+// ================= Load existing program =================
+const isLoading = ref(false)
+const loadError = ref('')
+
+async function loadProgram(id: string | number) {
+  isLoading.value = true
+  loadError.value = ''
+  form.value.id = id
+  try {
+    const data: any = await $fetch(`${API_BASE}/programs/${id}`)
+
+    form.value.id = data.id
+    form.value.programCode = data.program_code ?? ''
+    form.value.nameTh = data.name_th ?? ''
+    form.value.nameEn = data.name_en ?? ''
+    form.value.degreeFullTh = data.degree_name_th ?? ''
+    form.value.degreeAbbrTh = data.degree_abbr_th ?? ''
+    form.value.degreeFullEn = data.degree_name_en ?? ''
+    form.value.degreeAbbrEn = data.degree_abbr_en ?? ''
+    form.value.totalCredits = data.total_credits != null ? String(data.total_credits) : ''
+    form.value.format = data.program_format ?? ''
+    form.value.ptype = data.program_type ?? ''
+    form.value.language = data.language ?? 'ภาษาไทย'
+    form.value.admission = data.admission_req ?? ''
+    form.value.cooperation = data.cooperation ?? ''
+    form.value.degreeGrant = data.degree_granting ?? ''
+    form.value.readiness = data.readiness ?? ''
+    form.value.location = data.location ?? ''
+    form.value.econSituation = data.economic_situation ?? ''
+    form.value.socialSituation = data.social_situation ?? ''
+    form.value.devPlan = data.development_plan ?? ''
+    form.value.universityMission = data.university_mission ?? ''
+    form.value.otherCoursesIn = data.other_courses_in ?? ''
+    form.value.otherCoursesOut = data.other_courses_out ?? ''
+    form.value.administration = data.administration ?? ''
+
+    form.value.majors = data.majors?.length
+      ? [...data.majors].sort((a: any, b: any) => a.sort_order - b.sort_order).map((m: any) => m.major_name)
+      : ['']
+
+    form.value.careers = data.careers_list?.length
+      ? [...data.careers_list].sort((a: any, b: any) => a.sort_order - b.sort_order).map((c: any) => c.career_name)
+      : ['']
+
+    form.value.approvals = data.approvals?.length
+      ? [...data.approvals].sort((a: any, b: any) => a.sort_order - b.sort_order).map((a: any) => ({
+          committee: a.committee ?? '',
+          approvalDate: a.approval_date ?? '',
+          note: a.note ?? ''
+        }))
+      : [{ committee: '', approvalDate: '', note: '' }]
+
+    form.value.instructors = data.instructors?.length
+      ? [...data.instructors].sort((a: any, b: any) => a.sort_order - b.sort_order).map((x: any) => ({
+          name: x.name ?? '',
+          position: x.position ?? '',
+          degree: x.degree ?? '',
+          branch: x.branch ?? ''
+        }))
+      : [{ name: '', position: '', degree: '', branch: '' }]
+  } catch (err: any) {
+    console.error('Failed to load program', err)
+
+    const status = err?.response?.status ?? err?.statusCode
+    if (status === 404) {
+      // The row this id pointed to is gone (deleted, or the id was stale).
+      // Fall back to a blank/new program instead of being stuck forever
+      // trying to PUT a program that no longer exists.
+      form.value.id = null
+      router.replace({ path: route.path, query: {} })
+      loadError.value = 'ไม่พบข้อมูลหลักสูตรนี้ในระบบแล้ว เริ่มกรอกข้อมูลใหม่ได้เลย'
+    } else {
+      loadError.value = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่'
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
 // 💾 เมื่อหน้าเว็บโหลด ให้ดึงข้อมูลมาแสดง ถ้ามี id แนบมากับ URL
 onMounted(() => {
   if (route.query.id) {
-    form.value.id = route.query.id as string
+    loadProgram(route.query.id as string)
   }
 })
 
@@ -52,30 +137,137 @@ const removeMajor = (i: number) => { form.value.majors.splice(i, 1); if(form.val
 const addCareer = () => form.value.careers.push('')
 const removeCareer = (i: number) => { form.value.careers.splice(i, 1); if(form.value.careers.length === 0) form.value.careers.push('') }
 
-const addApproval = () => form.value.approvals.push({ body: '', date: '', note: '' })
-const removeApproval = (i: number) => { form.value.approvals.splice(i, 1); if(form.value.approvals.length === 0) form.value.approvals.push({ body: '', date: '', note: '' }) }
+const addApproval = () => form.value.approvals.push({ committee: '', approvalDate: '', note: '' })
+const removeApproval = (i: number) => { form.value.approvals.splice(i, 1); if(form.value.approvals.length === 0) form.value.approvals.push({ committee: '', approvalDate: '', note: '' }) }
 
 const addInstructor = () => form.value.instructors.push({ name: '', position: '', degree: '', branch: '' })
 const removeInstructor = (i: number) => { form.value.instructors.splice(i, 1); if(form.value.instructors.length === 0) form.value.instructors.push({ name: '', position: '', degree: '', branch: '' }) }
 
+// ================= Build the /programs payload =================
+function buildProgramPayload() {
+  return {
+    program_code: form.value.programCode || null,
+    name_th: form.value.nameTh || null,
+    name_en: form.value.nameEn || null,
+    degree_name_th: form.value.degreeFullTh || null,
+    degree_abbr_th: form.value.degreeAbbrTh || null,
+    degree_name_en: form.value.degreeFullEn || null,
+    degree_abbr_en: form.value.degreeAbbrEn || null,
+    total_credits: form.value.totalCredits ? Number(form.value.totalCredits) : null,
+    program_format: form.value.format || null,
+    program_type: form.value.ptype || null,
+    language: form.value.language || null,
+    admission_req: form.value.admission || null,
+    cooperation: form.value.cooperation || null,
+    degree_granting: form.value.degreeGrant || null,
+    readiness: form.value.readiness || null,
+    location: form.value.location || null,
+    economic_situation: form.value.econSituation || null,
+    social_situation: form.value.socialSituation || null,
+    development_plan: form.value.devPlan || null,
+    university_mission: form.value.universityMission || null,
+    other_courses_in: form.value.otherCoursesIn || null,
+    other_courses_out: form.value.otherCoursesOut || null,
+    administration: form.value.administration || null
+  }
+}
+
+// The child routers only expose add-one / delete-one, not update-one,
+// so "sync" here means: wipe what's on the server for this program,
+// then re-add whatever's currently in the form.
+async function replaceChildren(programId: string | number, resource: string, items: any[]) {
+  const existing: any[] = await $fetch(`${API_BASE}/programs/${programId}/${resource}/`)
+  await Promise.all(
+    existing.map(e => $fetch(`${API_BASE}/programs/${programId}/${resource}/${e.id}`, { method: 'DELETE' }))
+  )
+  for (const item of items) {
+    await $fetch(`${API_BASE}/programs/${programId}/${resource}/`, { method: 'POST', body: item })
+  }
+}
+
+async function saveChildren(programId: string | number) {
+  await replaceChildren(
+    programId, 'majors',
+    form.value.majors.filter(m => m.trim()).map((major_name, i) => ({ major_name, sort_order: i }))
+  )
+  await replaceChildren(
+    programId, 'careers',
+    form.value.careers.filter(c => c.trim()).map((career_name, i) => ({ career_name, sort_order: i }))
+  )
+  await replaceChildren(
+    programId, 'approvals',
+    form.value.approvals
+      .filter(a => a.committee.trim() || a.approvalDate || a.note.trim())
+      .map((a, i) => ({
+        committee: a.committee || null,
+        approval_date: a.approvalDate || null,
+        note: a.note || null,
+        sort_order: i
+      }))
+  )
+  await replaceChildren(
+    programId, 'instructors',
+    form.value.instructors
+      .filter(x => x.name.trim())
+      .map((x, i) => ({
+        name: x.name,
+        position: x.position || null,
+        degree: x.degree || null,
+        branch: x.branch || null,
+        sort_order: i
+      }))
+  )
+}
+
+async function saveProgram(): Promise<any> {
+  const payload = buildProgramPayload()
+  if (form.value.id) {
+    return await $fetch(`${API_BASE}/programs/${form.value.id}`, { method: 'PUT', body: payload })
+  }
+  return await $fetch(`${API_BASE}/programs/`, { method: 'POST', body: payload })
+}
 
 // ================= ระบบบันทึกข้อมูล (Save System) =================
 const isSavingDraft = ref(false)
 const isSavingNext = ref(false)
+const saveError = ref('')
 
 const saveDraft = async () => {
   isSavingDraft.value = true
-  await new Promise(r => setTimeout(r, 1000))
-  if (!form.value.id) form.value.id = 1 
-  isSavingDraft.value = false
+  saveError.value = ''
+  try {
+    const saved = await saveProgram()
+    form.value.id = saved.id
+    await saveChildren(saved.id)
+
+    // Reflect the DB's auto-increment id in the URL so a refresh,
+    // bookmark, or shared link keeps pointing at this same program
+    // instead of starting a new one.
+    if (route.query.id !== String(saved.id)) {
+      router.replace({ path: route.path, query: { id: saved.id } })
+    }
+  } catch (err) {
+    console.error('Save draft failed', err)
+    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingDraft.value = false
+  }
 }
 
 const saveAndNext = async () => {
   isSavingNext.value = true
-  await new Promise(r => setTimeout(r, 1000))
-  if (!form.value.id) form.value.id = 1 
-  isSavingNext.value = false
-  router.push({ path: '/number2', query: { id: form.value.id } })
+  saveError.value = ''
+  try {
+    const saved = await saveProgram()
+    form.value.id = saved.id
+    await saveChildren(saved.id)
+    router.push({ path: '/number2', query: { id: form.value.id } })
+  } catch (err) {
+    console.error('Save and next failed', err)
+    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingNext.value = false
+  }
 }
 
 // ================= UI State & Actions =================
@@ -281,11 +473,11 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                 <div class="slist-fields fs-grid">
                   <div class="fs-field" style="grid-column: span 1;">
                     <label>คณะกรรมการ/ที่ประชุม</label>
-                    <input v-model="item.body" type="text" placeholder="เช่น สภาวิชาการ มหาวิทยาลัย..." />
+                    <input v-model="item.committee" type="text" placeholder="เช่น สภาวิชาการ มหาวิทยาลัย..." />
                   </div>
                   <div class="fs-field" style="grid-column: span 1;">
                     <label>วัน เดือน ปี</label>
-                    <input v-model="item.date" type="text" placeholder="เช่น 22 พฤศจิกายน 2564" />
+                    <input v-model="item.approvalDate" type="date" />
                   </div>
                   <div class="fs-field" style="grid-column: 1 / -1;">
                     <label>มติ/หมายเหตุ</label>
@@ -455,6 +647,7 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
       </div>
 
       <!-- Action Footer -->
+      <div v-if="saveError" style="color:#9C4132; font-size:12.8px; margin-bottom:8px;">{{ saveError }}</div>
       <div class="page-footer">
         <button type="button" @click="router.push(`/?id=${form.id || ''}`)" class="nav-btn">
           ← <span>ข้อมูลสถาบันอุดมศึกษา</span>

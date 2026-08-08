@@ -4,6 +4,9 @@ import { ref, onMounted } from 'vue'
 const route = useRoute()
 const router = useRouter()
 
+const config = useRuntimeConfig()
+const API_BASE = config.public.apiBase as string
+
 // ================= State ข้อมูลฟอร์มหน้า 2 =================
 const form = ref({ 
   id: null as string | number | null,
@@ -22,9 +25,74 @@ const form = ref({
   devPlans: [{ plan: '', strategy: '', indicator: '' }]
 })
 
+// ================= Load existing program =================
+const isLoading = ref(false)
+const loadError = ref('')
+
+function safeParse(json: string | null | undefined, fallback: any) {
+  if (!json) return fallback
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) && parsed.length ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}
+
+async function loadProgram(id: string | number) {
+  isLoading.value = true
+  loadError.value = ''
+  try {
+    const data: any = await $fetch(`${API_BASE}/programs/${id}`)
+
+    form.value.id = data.id
+    form.value.philosophy = data.philosophy ?? ''
+    form.value.importance = data.importance ?? ''
+
+    // objectives / uniqueness are stored as JSON strings inside
+    // the program's own `objectives` / `uniqueness` text columns
+    form.value.objectives = safeParse(data.objectives, [{ code: '', desc: '' }])
+    form.value.uniquenessList = safeParse(data.uniqueness, [''])
+
+    // YLO by branch is stored as one JSON blob in program_elo_framework.framework
+    try {
+      const elo: any = await $fetch(`${API_BASE}/programs/${id}/elo-framework`)
+      const parsed = elo?.framework ? JSON.parse(elo.framework) : {}
+      form.value.yloTelecom = parsed.telecom?.length ? parsed.telecom : [{ year: '', desc: '' }]
+      form.value.yloComputer = parsed.computer?.length ? parsed.computer : [{ year: '', desc: '' }]
+      form.value.yloInstrument = parsed.instrument?.length ? parsed.instrument : [{ year: '', desc: '' }]
+      form.value.yloBroadcast = parsed.broadcast?.length ? parsed.broadcast : [{ year: '', desc: '' }]
+    } catch (err) {
+      console.error('Failed to load ELO framework', err)
+    }
+
+    form.value.devPlans = data.development_plans?.length
+      ? [...data.development_plans].sort((a: any, b: any) => a.sort_order - b.sort_order).map((p: any) => ({
+          plan: p.plan ?? '', strategy: p.strategy ?? '', indicator: p.indicator ?? ''
+        }))
+      : [{ plan: '', strategy: '', indicator: '' }]
+  } catch (err: any) {
+    console.error('Failed to load program', err)
+
+    const status = err?.response?.status ?? err?.statusCode
+    if (status === 404) {
+      // This program no longer exists — page 2 has nothing to attach to,
+      // so send the user back to page 1 to start over instead of letting
+      // them fill out a form that can never save.
+      loadError.value = 'ไม่พบข้อมูลหลักสูตรนี้แล้ว กำลังพากลับไปหน้า 1'
+      router.replace({ path: '/number1' })
+    } else {
+      loadError.value = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่'
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
 onMounted(() => {
   if (route.query.id) {
     form.value.id = route.query.id as string
+    loadProgram(form.value.id)
   }
 })
 
@@ -51,21 +119,84 @@ const removeYlo = (branch: 'Telecom' | 'Computer' | 'Instrument' | 'Broadcast', 
 const addDevPlan = () => form.value.devPlans.push({ plan: '', strategy: '', indicator: '' })
 const removeDevPlan = (i: number) => { form.value.devPlans.splice(i, 1); if(form.value.devPlans.length === 0) form.value.devPlans.push({ plan: '', strategy: '', indicator: '' }) }
 
+// ================= Save helpers =================
+async function replaceChildren(programId: string | number, resource: string, items: any[]) {
+  const existing: any[] = await $fetch(`${API_BASE}/programs/${programId}/${resource}/`)
+  await Promise.all(
+    existing.map(e => $fetch(`${API_BASE}/programs/${programId}/${resource}/${e.id}`, { method: 'DELETE' }))
+  )
+  for (const item of items) {
+    await $fetch(`${API_BASE}/programs/${programId}/${resource}/`, { method: 'POST', body: item })
+  }
+}
+
+async function saveAll() {
+  const id = form.value.id
+  if (!id) throw new Error('ต้องกรอกหน้า 1 และบันทึกก่อน จึงจะมี program id')
+
+  // 2.1 / 2.2 / 2.3 / 2.4 — plain + JSON-encoded fields on the program row
+  await $fetch(`${API_BASE}/programs/${id}`, {
+    method: 'PUT',
+    body: {
+      philosophy: form.value.philosophy || null,
+      importance: form.value.importance || null,
+      objectives: JSON.stringify(form.value.objectives.filter(o => o.code.trim() || o.desc.trim())),
+      uniqueness: JSON.stringify(form.value.uniquenessList.filter(u => u.trim()))
+    }
+  })
+
+  // 2.5 - 2.8 — YLO by branch, one JSON blob
+  await $fetch(`${API_BASE}/programs/${id}/elo-framework`, {
+    method: 'PUT',
+    body: {
+      framework: JSON.stringify({
+        telecom: form.value.yloTelecom.filter(y => y.year.trim() || y.desc.trim()),
+        computer: form.value.yloComputer.filter(y => y.year.trim() || y.desc.trim()),
+        instrument: form.value.yloInstrument.filter(y => y.year.trim() || y.desc.trim()),
+        broadcast: form.value.yloBroadcast.filter(y => y.year.trim() || y.desc.trim())
+      })
+    }
+  })
+
+  // 2.9 — real child table, same replace-all pattern as page 1
+  await replaceChildren(
+    id, 'development-plans',
+    form.value.devPlans
+      .filter(p => p.plan.trim() || p.strategy.trim() || p.indicator.trim())
+      .map((p, i) => ({ plan: p.plan || null, strategy: p.strategy || null, indicator: p.indicator || null, sort_order: i }))
+  )
+}
+
 // ================= ระบบบันทึกข้อมูล =================
 const isSavingDraft = ref(false)
 const isSavingNext = ref(false)
+const saveError = ref('')
 
 const saveDraft = async () => {
   isSavingDraft.value = true
-  await new Promise(r => setTimeout(r, 1000))
-  isSavingDraft.value = false
+  saveError.value = ''
+  try {
+    await saveAll()
+  } catch (err) {
+    console.error('Save draft failed', err)
+    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingDraft.value = false
+  }
 }
 
 const saveAndNext = async () => {
   isSavingNext.value = true
-  await new Promise(r => setTimeout(r, 1000))
-  isSavingNext.value = false
-  router.push({ path: '/number3', query: { id: form.value.id } })
+  saveError.value = ''
+  try {
+    await saveAll()
+    router.push({ path: '/number3', query: { id: form.value.id } })
+  } catch (err) {
+    console.error('Save and next failed', err)
+    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingNext.value = false
+  }
 }
 
 const scrollToSec = (id: string) => {

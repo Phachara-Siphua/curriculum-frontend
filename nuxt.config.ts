@@ -6,5 +6,10 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   ui:{
     colorMode:false
-  }
+  },
+  runtimeConfig: {
+     public: {
+       apiBase: 'http://localhost:8000' // or your deployed API URL
+     }
+   }
 })
