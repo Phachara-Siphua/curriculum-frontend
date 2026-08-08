@@ -6,6 +6,9 @@ const route = useRoute()
 const router = useRouter()
 const programId = ref<string | null>(null)
 
+const config = useRuntimeConfig()
+const API_BASE = config.public.apiBase as string
+
 // รายชื่อหัวข้อทั้ง 43 หัวข้อ
 const sectionTitles = [
   "ระบบ", "การจัดการศึกษาภาคฤดูร้อน", "การเทียบเคียงหน่วยกิตในระบบทวิภาค", "วัน-เวลาในการดำเนินการเรียนการสอน", "คุณสมบัติของผู้เข้าศึกษา",
@@ -18,6 +21,22 @@ const sectionTitles = [
   "การจัดเวลาและตารางสอน (ประสบการณ์ภาคสนาม)", "ข้อกำหนดเกี่ยวกับการทำโครงงานหรืองานวิจัย", "คำอธิบายโดยย่อ (โครงงานหรืองานวิจัย)", "มาตรฐานผลการเรียนรู้ (โครงงานหรืองานวิจัย)", "ช่วงเวลา (โครงงานหรืองานวิจัย)",
   "จำนวนหน่วยกิต (โครงงานหรืองานวิจัย)", "การเตรียมการ (โครงงานหรืองานวิจัย)", "กระบวนการประเมินผล (โครงงานหรืองานวิจัย)"
 ]
+
+// Section indices (0-based) that are plain textareas with no dedicated
+// table — these are stored in the generic program_learning_topic table.
+const PLAIN_TEXT_INDICES = [0, 1, 2, 10, 11, 25, 32, 36, 37, 38, 39, 40, 41, 42]
+// Section indices that are simple lists — also stored in
+// program_learning_topic, but content is a JSON array string.
+const LIST_INDICES = [4, 5, 6, 33, 34, 35]
+// s3_8 (index 7) is a year-level x calendar-year matrix with no matching
+// table shape — also stored as JSON in program_learning_topic.
+const MATRIX_INDEX = 7
+// 3.14-3.25 — 12 subject-group lists (object arrays), stored as JSON
+const SUBJECT_GROUP_INDICES = [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+// 3.27-3.30 — 4 branch study-plan tables (object arrays), stored as JSON
+const STUDY_PLAN_INDICES = [26, 27, 28, 29]
+// 3.31 — course descriptions (object array), stored as JSON
+const COURSE_DESC_INDEX = 30
 
 // ================= State ข้อมูลฟอร์ม =================
 const form = ref<any>({
@@ -35,12 +54,130 @@ const form = ref<any>({
   s3_29: [{ sem: 'ปีที่ 1 / ภาค 1', code: '', name: '', credit: '' }],
   s3_30: [{ sem: 'ปีที่ 1 / ภาค 1', code: '', name: '', credit: '' }],
   s3_31: [{ code: '', credit: '', nameTh: '', nameEn: '', prereq: '', descTh: '', descEn: '' }],
-  s3_32: [{ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }]
+  s3_32: [{ id: null as number | null, name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }]
+})
+
+const YEAR_COLS = ['y65', 'y66', 'y67', 'y68', 'y69']
+const YEAR_LABELS: Record<string, string> = { y65: '2565', y66: '2566', y67: '2567', y68: '2568', y69: '2569' }
+
+// ================= Load existing program =================
+const isLoading = ref(false)
+const loadError = ref('')
+
+function safeParseArray(json: string | null | undefined, fallback: any) {
+  if (!json) return fallback
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) && parsed.length ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}
+
+async function loadProgram(id: string | number) {
+  isLoading.value = true
+  loadError.value = ''
+  programId.value = String(id)
+  form.value.id = id
+  try {
+    const data: any = await $fetch(`${API_BASE}/programs/${id}`)
+
+    // plain-text + list + matrix sections, from program_learning_topic
+    const topics: any[] = data.learning_topics ?? []
+    const byNo = (no: string) => topics.find(t => t.topic_no === no)
+
+    PLAIN_TEXT_INDICES.forEach(i => {
+      form.value.sections[i] = byNo(`3.${i + 1}`)?.content ?? ''
+    })
+    LIST_INDICES.forEach(i => {
+      const key = `s3_${i + 1}`
+      form.value[key] = safeParseArray(byNo(`3.${i + 1}`)?.content, [''])
+    })
+    form.value.s3_8 = safeParseArray(
+      byNo(`3.${MATRIX_INDEX + 1}`)?.content,
+      [{ year: 'ชั้นปีที่ 1', y65: '', y66: '', y67: '', y68: '', y69: '' }]
+    )
+
+    // 3.14-3.25 — subject groups
+    SUBJECT_GROUP_INDICES.forEach((i, groupIdx) => {
+      form.value.subjects[groupIdx] = safeParseArray(
+        byNo(`3.${i + 1}`)?.content,
+        [{ code: '', credit: '', nameTh: '', nameEn: '', note: '' }]
+      )
+    })
+
+    // 3.27-3.30 — branch study plans
+    STUDY_PLAN_INDICES.forEach(i => {
+      const key = `s3_${i + 1}`
+      form.value[key] = safeParseArray(
+        byNo(`3.${i + 1}`)?.content,
+        [{ sem: 'ปีที่ 1 / ภาค 1', code: '', name: '', credit: '' }]
+      )
+    })
+
+    // 3.31 — course descriptions
+    form.value.s3_31 = safeParseArray(
+      byNo(`3.${COURSE_DESC_INDEX + 1}`)?.content,
+      [{ code: '', credit: '', nameTh: '', nameEn: '', prereq: '', descTh: '', descEn: '' }]
+    )
+
+    // 3.4 — program_schedule
+    const schedules: any[] = data.schedules ?? []
+    const byType = (t: string) => schedules.find(s => s.semester_type === t)?.schedule_text ?? ''
+    form.value.s3_4 = { sem1: byType('semester1'), sem2: byType('semester2'), summer: byType('summer') }
+
+    // 3.9 / 3.10 — budget, un-flatten rows back into the year-columns table
+    const groupByLabel = (rows: any[], labelKey: string) => {
+      const grouped: Record<string, any> = {}
+      rows.forEach(r => {
+        const label = r[labelKey] ?? ''
+        if (!grouped[label]) grouped[label] = { [labelKey]: label, y65: '', y66: '', y67: '', y68: '', y69: '' }
+        const col = Object.keys(YEAR_LABELS).find(k => YEAR_LABELS[k] === r.year_label)
+        if (col) grouped[label][col] = r.amount != null ? String(r.amount) : ''
+      })
+      return Object.values(grouped)
+    }
+    form.value.s3_9 = data.budget_incomes?.length ? groupByLabel(data.budget_incomes, 'detail') : form.value.s3_9
+    form.value.s3_10 = data.budget_expenses?.length ? groupByLabel(data.budget_expenses, 'category') : form.value.s3_10
+
+    // 3.13 — course_category
+    form.value.s3_13 = data.course_categories?.length
+      ? [...data.course_categories].sort((a: any, b: any) => a.sort_order - b.sort_order)
+          .map((c: any) => ({ group: c.name_th ?? '', credits: c.required_credits != null ? String(c.required_credits) : '' }))
+      : form.value.s3_13
+
+    // 3.32 — reuses the same program_instructor rows as page 1, merged in place
+    form.value.s3_32 = data.instructors?.length
+      ? data.instructors.map((x: any) => ({
+          id: x.id,
+          name: x.name ?? '',
+          position: x.position ?? '',
+          degree: x.degree ?? '',
+          research: x.research ?? '',
+          loadNow: x.load_now != null ? String(x.load_now) : '',
+          loadNew: x.load_new != null ? String(x.load_new) : ''
+        }))
+      : [{ id: null, name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }]
+  } catch (err: any) {
+    console.error('Failed to load program', err)
+    const status = err?.response?.status ?? err?.statusCode
+    if (status === 404) {
+      loadError.value = 'ไม่พบข้อมูลหลักสูตรนี้แล้ว กำลังพากลับไปหน้า 1'
+      router.replace({ path: '/number1' })
+    } else {
+      loadError.value = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่'
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  if (route.query.id) loadProgram(route.query.id as string)
 })
 
 // ================= AI Integration =================
 const handleAIGenerate = (section: string, payload?: any) => {
-  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
   console.log('Trigger AI Generation for:', section, payload)
   alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\nข้อมูลอ้างอิง: ${payload || 'ไม่มี'}\n(รอ Backend เชื่อมต่อ API)`)
 }
@@ -58,17 +195,174 @@ const removeSubject = (idx: number, itemIdx: number) => { form.value.subjects[id
 const addS3_31 = () => { form.value.s3_31.push({ code: '', credit: '', nameTh: '', nameEn: '', prereq: '', descTh: '', descEn: '' }) }
 const removeS3_31 = (idx: number) => { form.value.s3_31.splice(idx, 1); if(form.value.s3_31.length === 0) form.value.s3_31.push({ code: '', credit: '', nameTh: '', nameEn: '', prereq: '', descTh: '', descEn: '' }) }
 
-const addS3_32 = () => { form.value.s3_32.push({ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }) }
-const removeS3_32 = (idx: number) => { form.value.s3_32.splice(idx, 1); if(form.value.s3_32.length === 0) form.value.s3_32.push({ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }) }
+const deletedInstructorIds: number[] = []
+const addS3_32 = () => { form.value.s3_32.push({ id: null, name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }) }
+const removeS3_32 = (idx: number) => {
+  const removed = form.value.s3_32[idx]
+  if (removed?.id) deletedInstructorIds.push(removed.id)
+  form.value.s3_32.splice(idx, 1)
+  if(form.value.s3_32.length === 0) form.value.s3_32.push({ id: null, name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' })
+}
 
 const doneState = ref<Record<number, boolean>>({})
 const toggleDone = (index: number) => { doneState.value[index] = !doneState.value[index] }
 
-onMounted(() => { if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string } })
+// ================= Save helpers =================
+async function replaceChildren(id: string | number, resource: string, items: any[]) {
+  const existing: any[] = await $fetch(`${API_BASE}/programs/${id}/${resource}/`)
+  await Promise.all(existing.map(e => $fetch(`${API_BASE}/programs/${id}/${resource}/${e.id}`, { method: 'DELETE' })))
+  for (const item of items) {
+    await $fetch(`${API_BASE}/programs/${id}/${resource}/`, { method: 'POST', body: item })
+  }
+}
 
-const isSavingDraft = ref(false); const isSavingNext = ref(false)
-const saveDraft = async () => { isSavingDraft.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingDraft.value = false; }
-const saveAndNext = async () => { isSavingNext.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingNext.value = false; router.push({ path: '/number4', query: { id: programId.value } }) }
+function flattenYearTable(rows: any[], labelKey: string) {
+  const out: any[] = []
+  rows.forEach((row, i) => {
+    YEAR_COLS.forEach(col => {
+      const raw = row[col]
+      if (raw === '' || raw == null) return
+      const amount = Number(String(raw).replace(/,/g, ''))
+      if (Number.isNaN(amount)) return
+      out.push({ [labelKey]: row[labelKey] || '', year_label: YEAR_LABELS[col], amount, sort_order: i })
+    })
+  })
+  return out
+}
+
+async function saveAll() {
+  const id = form.value.id
+  if (!id) throw new Error('ต้องกรอกหน้า 1 และบันทึกก่อน จึงจะมี program id')
+
+  // plain-text + list + matrix sections -> program_learning_topic
+  const topicItems: any[] = []
+  PLAIN_TEXT_INDICES.forEach(i => {
+    if (form.value.sections[i]?.trim()) {
+      topicItems.push({ topic_no: `3.${i + 1}`, title: sectionTitles[i], content: form.value.sections[i], sort_order: i })
+    }
+  })
+  LIST_INDICES.forEach(i => {
+    const items = (form.value[`s3_${i + 1}`] as string[]).filter(v => v.trim())
+    if (items.length) {
+      topicItems.push({ topic_no: `3.${i + 1}`, title: sectionTitles[i], content: JSON.stringify(items), sort_order: i })
+    }
+  })
+  const matrixRows = form.value.s3_8.filter((r: any) => r.year.trim() || YEAR_COLS.some(c => r[c]))
+  if (matrixRows.length) {
+    topicItems.push({
+      topic_no: `3.${MATRIX_INDEX + 1}`, title: sectionTitles[MATRIX_INDEX],
+      content: JSON.stringify(matrixRows), sort_order: MATRIX_INDEX
+    })
+  }
+
+  // 3.14-3.25 — subject groups
+  SUBJECT_GROUP_INDICES.forEach((i, groupIdx) => {
+    const items = form.value.subjects[groupIdx].filter((s: any) => s.code.trim() || s.nameTh.trim() || s.nameEn.trim())
+    if (items.length) {
+      topicItems.push({ topic_no: `3.${i + 1}`, title: sectionTitles[i], content: JSON.stringify(items), sort_order: i })
+    }
+  })
+
+  // 3.27-3.30 — branch study plans
+  STUDY_PLAN_INDICES.forEach(i => {
+    const items = (form.value[`s3_${i + 1}`] as any[]).filter(r => r.code.trim() || r.name.trim())
+    if (items.length) {
+      topicItems.push({ topic_no: `3.${i + 1}`, title: sectionTitles[i], content: JSON.stringify(items), sort_order: i })
+    }
+  })
+
+  // 3.31 — course descriptions
+  const courseDescItems = form.value.s3_31.filter((c: any) => c.code.trim() || c.nameTh.trim() || c.nameEn.trim())
+  if (courseDescItems.length) {
+    topicItems.push({
+      topic_no: `3.${COURSE_DESC_INDEX + 1}`, title: sectionTitles[COURSE_DESC_INDEX],
+      content: JSON.stringify(courseDescItems), sort_order: COURSE_DESC_INDEX
+    })
+  }
+  await replaceChildren(id, 'learning-topics', topicItems)
+
+  // 3.4 -> program_schedule
+  const scheduleItems = [
+    { semester_type: 'semester1', schedule_text: form.value.s3_4.sem1 || null },
+    { semester_type: 'semester2', schedule_text: form.value.s3_4.sem2 || null },
+    { semester_type: 'summer', schedule_text: form.value.s3_4.summer || null }
+  ].filter(s => s.schedule_text)
+  await replaceChildren(id, 'schedule', scheduleItems)
+
+  // 3.9 / 3.10 -> budget income / expense, flattened
+  await replaceChildren(id, 'budget-income', flattenYearTable(form.value.s3_9, 'detail'))
+  await replaceChildren(id, 'budget-expense', flattenYearTable(form.value.s3_10, 'category'))
+
+  // 3.13 -> course_category
+  const categoryItems = form.value.s3_13
+    .filter((c: any) => c.group.trim())
+    .map((c: any, i: number) => ({
+      name_th: c.group,
+      required_credits: c.credits ? Number(c.credits) : null,
+      sort_order: i
+    }))
+  await replaceChildren(id, 'course-categories', categoryItems)
+
+  // 3.32 -> program_instructor, merged in place (shared with page 1)
+  for (const del of deletedInstructorIds) {
+    await $fetch(`${API_BASE}/programs/${id}/instructors/${del}`, { method: 'DELETE' }).catch(() => {})
+  }
+  deletedInstructorIds.length = 0
+
+  for (const item of form.value.s3_32) {
+    if (!item.name.trim()) continue
+    const body = {
+      name: item.name,
+      position: item.position || null,
+      degree: item.degree || null,
+      research: item.research || null,
+      load_now: item.loadNow ? Number(item.loadNow) : null,
+      load_new: item.loadNew ? Number(item.loadNew) : null
+    }
+    if (item.id) {
+      const saved: any = await $fetch(`${API_BASE}/programs/${id}/instructors/${item.id}`, { method: 'PUT', body })
+      item.id = saved.id
+    } else {
+      const saved: any = await $fetch(`${API_BASE}/programs/${id}/instructors/`, {
+        method: 'POST',
+        body: { ...body, branch: '', instructor_type: 'responsible', sort_order: 0 }
+      })
+      item.id = saved.id
+    }
+  }
+}
+
+// ================= ระบบบันทึกข้อมูล =================
+const isSavingDraft = ref(false)
+const isSavingNext = ref(false)
+const saveError = ref('')
+
+const saveDraft = async () => {
+  isSavingDraft.value = true
+  saveError.value = ''
+  try {
+    await saveAll()
+  } catch (err) {
+    console.error('Save draft failed', err)
+    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingDraft.value = false
+  }
+}
+
+const saveAndNext = async () => {
+  isSavingNext.value = true
+  saveError.value = ''
+  try {
+    await saveAll()
+    router.push({ path: '/number4', query: { id: programId.value } })
+  } catch (err) {
+    console.error('Save and next failed', err)
+    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+  } finally {
+    isSavingNext.value = false
+  }
+}
 
 const scrollToSec = (id: string) => {
   const el = document.getElementById(id)

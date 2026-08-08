@@ -7,6 +7,16 @@ const router = useRouter()
 const config = useRuntimeConfig()
 const API_BASE = config.public.apiBase as string
 
+// Same branch labels used for instructors on page 1 — keep these consistent
+// across the app, since `ylo.branch` / `course_category.branch` / etc. all
+// key off this exact text.
+const YLO_BRANCH: Record<'Telecom' | 'Computer' | 'Instrument' | 'Broadcast', string> = {
+  Telecom: 'แขนงวิชาโทรคมนาคม',
+  Computer: 'แขนงวิชาคอมพิวเตอร์',
+  Instrument: 'แขนงวิชาเครื่องมือวัดและควบคุม',
+  Broadcast: 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์'
+}
+
 // ================= State ข้อมูลฟอร์มหน้า 2 =================
 const form = ref({ 
   id: null as string | number | null,
@@ -54,16 +64,20 @@ async function loadProgram(id: string | number) {
     form.value.objectives = safeParse(data.objectives, [{ code: '', desc: '' }])
     form.value.uniquenessList = safeParse(data.uniqueness, [''])
 
-    // YLO by branch is stored as one JSON blob in program_elo_framework.framework
+    // YLO by branch — loaded from the real `ylo` table, grouped by branch
     try {
-      const elo: any = await $fetch(`${API_BASE}/programs/${id}/elo-framework`)
-      const parsed = elo?.framework ? JSON.parse(elo.framework) : {}
-      form.value.yloTelecom = parsed.telecom?.length ? parsed.telecom : [{ year: '', desc: '' }]
-      form.value.yloComputer = parsed.computer?.length ? parsed.computer : [{ year: '', desc: '' }]
-      form.value.yloInstrument = parsed.instrument?.length ? parsed.instrument : [{ year: '', desc: '' }]
-      form.value.yloBroadcast = parsed.broadcast?.length ? parsed.broadcast : [{ year: '', desc: '' }]
+      const ylos: any[] = await $fetch(`${API_BASE}/programs/${id}/ylo/`)
+      const byBranch = (branch: string) =>
+        ylos
+          .filter(y => y.branch === branch)
+          .map(y => ({ year: y.year != null ? String(y.year) : '', desc: y.description ?? '' }))
+
+      form.value.yloTelecom = byBranch(YLO_BRANCH.Telecom).length ? byBranch(YLO_BRANCH.Telecom) : [{ year: '', desc: '' }]
+      form.value.yloComputer = byBranch(YLO_BRANCH.Computer).length ? byBranch(YLO_BRANCH.Computer) : [{ year: '', desc: '' }]
+      form.value.yloInstrument = byBranch(YLO_BRANCH.Instrument).length ? byBranch(YLO_BRANCH.Instrument) : [{ year: '', desc: '' }]
+      form.value.yloBroadcast = byBranch(YLO_BRANCH.Broadcast).length ? byBranch(YLO_BRANCH.Broadcast) : [{ year: '', desc: '' }]
     } catch (err) {
-      console.error('Failed to load ELO framework', err)
+      console.error('Failed to load YLO', err)
     }
 
     form.value.devPlans = data.development_plans?.length
@@ -145,18 +159,21 @@ async function saveAll() {
     }
   })
 
-  // 2.5 - 2.8 — YLO by branch, one JSON blob
-  await $fetch(`${API_BASE}/programs/${id}/elo-framework`, {
-    method: 'PUT',
-    body: {
-      framework: JSON.stringify({
-        telecom: form.value.yloTelecom.filter(y => y.year.trim() || y.desc.trim()),
-        computer: form.value.yloComputer.filter(y => y.year.trim() || y.desc.trim()),
-        instrument: form.value.yloInstrument.filter(y => y.year.trim() || y.desc.trim()),
-        broadcast: form.value.yloBroadcast.filter(y => y.year.trim() || y.desc.trim())
-      })
-    }
-  })
+  // 2.5 - 2.8 — YLO by branch, real rows in the `ylo` table
+  const yloItems = [
+    ...form.value.yloTelecom.map(y => ({ ...y, branch: YLO_BRANCH.Telecom })),
+    ...form.value.yloComputer.map(y => ({ ...y, branch: YLO_BRANCH.Computer })),
+    ...form.value.yloInstrument.map(y => ({ ...y, branch: YLO_BRANCH.Instrument })),
+    ...form.value.yloBroadcast.map(y => ({ ...y, branch: YLO_BRANCH.Broadcast }))
+  ]
+    .filter(y => y.year.toString().trim() || y.desc.trim())
+    .map(y => ({
+      year: y.year ? Number(y.year) : null,
+      description: y.desc || null,
+      branch: y.branch
+    }))
+
+  await replaceChildren(id, 'ylo', yloItems)
 
   // 2.9 — real child table, same replace-all pattern as page 1
   await replaceChildren(
@@ -346,7 +363,7 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloTelecom" :key="i">
-                          <td><input v-model="ylo.year" type="text" placeholder="ชั้นปีที่..."></td>
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
                           <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
                           <td><button type="button" class="table-del" @click="removeYlo('Telecom', i)">✕</button></td>
                       </tr>
@@ -374,7 +391,7 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloComputer" :key="i">
-                          <td><input v-model="ylo.year" type="text" placeholder="ชั้นปีที่..."></td>
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
                           <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
                           <td><button type="button" class="table-del" @click="removeYlo('Computer', i)">✕</button></td>
                       </tr>
@@ -402,7 +419,7 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloInstrument" :key="i">
-                          <td><input v-model="ylo.year" type="text" placeholder="ชั้นปีที่..."></td>
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
                           <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
                           <td><button type="button" class="table-del" @click="removeYlo('Instrument', i)">✕</button></td>
                       </tr>
@@ -430,7 +447,7 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   <thead><tr><th style="width:120px">ชั้นปี</th><th>ความคาดหวังของผลลัพธ์การเรียนรู้</th><th style="width:40px"></th></tr></thead>
                   <tbody>
                       <tr v-for="(ylo, i) in form.yloBroadcast" :key="i">
-                          <td><input v-model="ylo.year" type="text" placeholder="ชั้นปีที่..."></td>
+                          <td><input v-model="ylo.year" type="number" min="1" placeholder="1, 2, 3..."></td>
                           <td><input v-model="ylo.desc" type="text" placeholder="ผลลัพธ์การเรียนรู้..."></td>
                           <td><button type="button" class="table-del" @click="removeYlo('Broadcast', i)">✕</button></td>
                       </tr>
