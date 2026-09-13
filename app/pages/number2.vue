@@ -1,6 +1,8 @@
 <!-- pages/number2.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { AIService, GenerationType } from '~/services/ai'
+
 const route = useRoute()
 const router = useRouter()
 
@@ -24,6 +26,8 @@ const form = ref({
   // 2.9 แผนพัฒนาปรับปรุง
   devPlans: [{ plan: '', strategy: '', indicator: '' }]
 })
+
+const loadingAI = ref<Record<string, boolean>>({})
 
 // ================= Load existing program =================
 const isLoading = ref(false)
@@ -97,10 +101,46 @@ onMounted(() => {
 })
 
 // ================= AI Integration =================
-const handleAIGenerate = (section: string, payload?: any) => {
-  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
-  console.log('Trigger AI Generation for:', section, payload)
-  alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\n(รอ Backend เชื่อมต่อ API)`)
+const handleAIGenerate = async (section: string, payload?: any) => {
+  const aiService = AIService.getInstance()
+
+  // Map section name to GenerationType
+  const typeMap: Record<string, GenerationType> = {
+    'importance': GenerationType.IMPORTANCE,
+    'objectives': GenerationType.OBJECTIVES,
+    'uniqueness': GenerationType.UNIQUENESS,
+    'ylo_telecom': GenerationType.YLO_TELECOM,
+    'ylo_computer': GenerationType.YLO_COMPUTER,
+    'ylo_instrument': GenerationType.YLO_INSTRUMENT,
+    'ylo_broadcast': GenerationType.YLO_BROADCAST,
+    'dev_plan': GenerationType.DEV_PLAN,
+  }
+
+  const type = typeMap[section]
+  if (!type) return
+
+  loadingAI.value[section] = true
+  try {
+    const response = await aiService.generate(type, payload)
+    if (response.success) {
+      const data = response.data
+
+      if (section === 'importance') form.value.importance = data
+      else if (section === 'objectives') form.value.objectives = data
+      else if (section === 'uniqueness') form.value.uniquenessList = data
+      else if (section === 'ylo_telecom') form.value.yloTelecom = data
+      else if (section === 'ylo_computer') form.value.yloComputer = data
+      else if (section === 'ylo_instrument') form.value.yloInstrument = data
+      else if (section === 'ylo_broadcast') form.value.yloBroadcast = data
+      else if (section === 'dev_plan') form.value.devPlans = data
+    } else {
+      alert(`AI Error: ${response.error}`)
+    }
+  } catch (err: any) {
+    alert(`Unexpected Error: ${err.message}`)
+  } finally {
+    loadingAI.value[section] = false
+  }
 }
 
 // ================= List & Table Actions =================
@@ -272,7 +312,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
             <div class="fs-grid full">
               <div class="fs-field">
                   <textarea v-model="form.importance" class="field" placeholder="ระบุความสำคัญ..."></textarea>
-                  <button type="button" @click="handleAIGenerate('importance')" class="ai-btn"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยเขียนความสำคัญ</button>
+                  <button type="button" @click="handleAIGenerate('importance')" :disabled="loadingAI['importance']" class="ai-btn">
+  <UIcon :name="loadingAI['importance'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['importance'] }" class="w-4 h-4"/>
+  {{ loadingAI['importance'] ? 'กำลังสร้าง...' : 'AI ช่วยเขียนความสำคัญ' }}
+</button>
               </div>
             </div>
           </div>
@@ -300,7 +343,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   <button type="button" class="slist-del" @click="removeObjective(i)">✕</button>
               </div>
               <button type="button" class="add-row" @click="addObjective()">+ เพิ่มรายการ</button>
-              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('objectives')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างวัตถุประสงค์</button>
+              <button type="button" :disabled="loadingAI['objectives']" class="ai-btn ml-2" @click="handleAIGenerate('objectives')">
+  <UIcon :name="loadingAI['objectives'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['objectives'] }" class="w-4 h-4"/>
+  {{ loadingAI['objectives'] ? 'กำลังสร้าง...' : 'AI ช่วยร่างวัตถุประสงค์' }}
+</button>
           </div>
         </section>
 
@@ -324,7 +370,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                 <button type="button" class="row-del" @click="removeUniqueness(i)">✕</button>
               </div>
               <button type="button" class="add-row" @click="addUniqueness()">+ เพิ่มรายการ</button>
-              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('uniqueness')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยคิดจุดเด่น</button>
+              <button type="button" :disabled="loadingAI['uniqueness']" class="ai-btn ml-2" @click="handleAIGenerate('uniqueness')">
+  <UIcon :name="loadingAI['uniqueness'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['uniqueness'] }" class="w-4 h-4"/>
+  {{ loadingAI['uniqueness'] ? 'กำลังสร้าง...' : 'AI ช่วยคิดจุดเด่น' }}
+</button>
             </div>
           </div>
         </section>
@@ -353,7 +402,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Telecom')">+ เพิ่มชั้นปี</button>
-              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_telecom')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+              <button type="button" :disabled="loadingAI['ylo_telecom']" class="ai-btn ml-2" @click="handleAIGenerate('ylo_telecom')">
+  <UIcon :name="loadingAI['ylo_telecom'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['ylo_telecom'] }" class="w-4 h-4"/>
+  {{ loadingAI['ylo_telecom'] ? 'กำลังสร้าง...' : 'AI ช่วยสร้าง YLO' }}
+</button>
           </div>
         </section>
 
@@ -381,7 +433,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Computer')">+ เพิ่มชั้นปี</button>
-              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_computer')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+              <button type="button" :disabled="loadingAI['ylo_computer']" class="ai-btn ml-2" @click="handleAIGenerate('ylo_computer')">
+  <UIcon :name="loadingAI['ylo_computer'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['ylo_computer'] }" class="w-4 h-4"/>
+  {{ loadingAI['ylo_computer'] ? 'กำลังสร้าง...' : 'AI ช่วยสร้าง YLO' }}
+</button>
           </div>
         </section>
         
@@ -409,7 +464,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Instrument')">+ เพิ่มชั้นปี</button>
-              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_instrument')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+              <button type="button" :disabled="loadingAI['ylo_instrument']" class="ai-btn ml-2" @click="handleAIGenerate('ylo_instrument')">
+  <UIcon :name="loadingAI['ylo_instrument'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['ylo_instrument'] }" class="w-4 h-4"/>
+  {{ loadingAI['ylo_instrument'] ? 'กำลังสร้าง...' : 'AI ช่วยสร้าง YLO' }}
+</button>
           </div>
         </section>
 
@@ -437,7 +495,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addYlo('Broadcast')">+ เพิ่มชั้นปี</button>
-              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('ylo_broadcast')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยสร้าง YLO</button>
+              <button type="button" :disabled="loadingAI['ylo_broadcast']" class="ai-btn ml-2" @click="handleAIGenerate('ylo_broadcast')">
+  <UIcon :name="loadingAI['ylo_broadcast'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['ylo_broadcast'] }" class="w-4 h-4"/>
+  {{ loadingAI['ylo_broadcast'] ? 'กำลังสร้าง...' : 'AI ช่วยสร้าง YLO' }}
+</button>
           </div>
         </section>
 
@@ -466,7 +527,10 @@ const toggleDone = (key: keyof typeof doneState.value) => { doneState.value[key]
                   </tbody>
               </table>
               <button type="button" class="add-row" @click="addDevPlan()">+ เพิ่มแถว</button>
-              <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('dev_plan')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างแผนพัฒนา</button>
+              <button type="button" :disabled="loadingAI['dev_plan']" class="ai-btn ml-2" @click="handleAIGenerate('dev_plan')">
+  <UIcon :name="loadingAI['dev_plan'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['dev_plan'] }" class="w-4 h-4"/>
+  {{ loadingAI['dev_plan'] ? 'กำลังสร้าง...' : 'AI ช่วยร่างแผนพัฒนา' }}
+</button>
           </div>
         </section>
 

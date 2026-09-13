@@ -1,6 +1,7 @@
 <!-- pages/number4.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { AIService, GenerationType } from '~/services/ai'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,14 +40,45 @@ const form = ref<any>({
   mapState: {} as Record<string, string>
 })
 
+const loadingAI = ref<Record<string, boolean>>({})
+
 const eloTypes = ['S — เฉพาะทาง (Specific)', 'G — ทั่วไป (General)']
 const branchOptions = ['แขนงวิชาโทรคมนาคม (T)', 'แขนงวิชาคอมพิวเตอร์ (C)', 'แขนงวิชาเครื่องมือวัดและควบคุม (I)', 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์ (B)']
 
 // ================= AI Integration =================
-const handleAIGenerate = (section: string, payload?: any) => {
-  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
-  console.log('Trigger AI Generation for:', section, payload)
-  alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\n(รอ Backend เชื่อมต่อ API)`)
+const handleAIGenerate = async (section: string, payload?: any) => {
+  const aiService = AIService.getInstance()
+
+  const typeMap: Record<string, GenerationType> = {
+    'elo_standard': GenerationType.ELO_STANDARD,
+    'elo_main': GenerationType.ELO_MAIN,
+    'elo_branch': GenerationType.ELO_BRANCH,
+    'curriculum_mapping': GenerationType.CURRICULUM_MAPPING,
+  }
+
+  const type = typeMap[section]
+  if (!type) return
+
+  loadingAI.value[section] = true
+  try {
+    const response = await aiService.generate(type, payload)
+    if (response.success) {
+      const data = response.data
+
+      if (section === 'elo_standard') form.value.s4_8 = data
+      else if (section === 'elo_main') form.value.s4_9 = data
+      else if (section === 'elo_branch') form.value.s4_10 = data
+      else if (section === 'curriculum_mapping') {
+        form.value.mapState = { ...form.value.mapState, ...data }
+      }
+    } else {
+      alert(`AI Error: ${response.error}`)
+    }
+  } catch (err: any) {
+    alert(`Unexpected Error: ${err.message}`)
+  } finally {
+    loadingAI.value[section] = false
+  }
 }
 
 // ================= Helper Functions =================
@@ -198,7 +230,10 @@ const cycleCell = (key: string) => {
             <div class="fs-grid full">
               <div class="fs-field">
                 <textarea v-model="form.s4_8" class="field bg-white" style="min-height: 80px;"></textarea>
-                <button type="button" class="ai-btn mt-2" @click="handleAIGenerate('elo_standard')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่าง ELO มาตรฐาน</button>
+                <button type="button" :disabled="loadingAI['elo_standard']" @click="handleAIGenerate('elo_standard')" class="ai-btn mt-2">
+  <UIcon :name="loadingAI['elo_standard'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['elo_standard'] }" class="w-4 h-4"/>
+  {{ loadingAI['elo_standard'] ? 'กำลังสร้าง...' : 'AI ช่วยร่าง ELO มาตรฐาน' }}
+</button>
               </div>
             </div>
           </div>
@@ -229,7 +264,10 @@ const cycleCell = (key: string) => {
               <button type="button" class="slist-del" @click="removeList('s4_9', idx, {code:'', type:'', desc:''})">✕</button>
             </div>
             <button type="button" class="add-row" @click="addList('s4_9', {code:'', type:'', desc:''})">+ เพิ่ม ELO หลัก</button>
-            <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('elo_main')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยคิด ELO หลัก</button>
+            <button type="button" :disabled="loadingAI['elo_main']" class="ai-btn ml-2" @click="handleAIGenerate('elo_main')">
+  <UIcon :name="loadingAI['elo_main'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['elo_main'] }" class="w-4 h-4"/>
+  {{ loadingAI['elo_main'] ? 'กำลังสร้าง...' : 'AI ช่วยคิด ELO หลัก' }}
+</button>
           </div>
         </section>
 
@@ -258,7 +296,10 @@ const cycleCell = (key: string) => {
               <button type="button" class="slist-del" @click="removeList('s4_10', idx, {code:'', branch:'', desc:''})">✕</button>
             </div>
             <button type="button" class="add-row" @click="addList('s4_10', {code:'', branch:'', desc:''})">+ เพิ่ม ELO เฉพาะแขนง</button>
-            <button type="button" class="ai-btn ml-2" @click="handleAIGenerate('elo_branch')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยคิด ELO แขนงวิชา</button>
+            <button type="button" :disabled="loadingAI['elo_branch']" class="ai-btn ml-2" @click="handleAIGenerate('elo_branch')">
+  <UIcon :name="loadingAI['elo_branch'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['elo_branch'] }" class="w-4 h-4"/>
+  {{ loadingAI['elo_branch'] ? 'กำลังสร้าง...' : 'AI ช่วยคิด ELO แขนงวิชา' }}
+</button>
           </div>
         </section>
 
@@ -322,7 +363,10 @@ const cycleCell = (key: string) => {
               <div class="it text-[#736F60]">คลิกที่ช่องตารางเพื่อสลับสถานะ: ว่าง → ○ → ● → ว่าง</div>
             </div>
 
-            <button type="button" class="ai-btn mb-4" @click="handleAIGenerate('curriculum_mapping')"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยประเมินและทำ Mapping อัตโนมัติ</button>
+            <button type="button" :disabled="loadingAI['curriculum_mapping']" class="ai-btn mb-4" @click="handleAIGenerate('curriculum_mapping')">
+  <UIcon :name="loadingAI['curriculum_mapping'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['curriculum_mapping'] }" class="w-4 h-4"/>
+  {{ loadingAI['curriculum_mapping'] ? 'กำลังสร้าง...' : 'AI ช่วยประเมินและทำ Mapping อัตโนมัติ' }}
+</button>
 
             <div class="map-scroll custom-scrollbar">
               <table class="mapping">

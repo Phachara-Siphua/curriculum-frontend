@@ -1,6 +1,7 @@
 <!-- pages/number3.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { AIService, GenerationType } from '~/services/ai'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,11 +39,40 @@ const form = ref<any>({
   s3_32: [{ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }]
 })
 
+const loadingAI = ref<Record<string, boolean>>({})
+
 // ================= AI Integration =================
-const handleAIGenerate = (section: string, payload?: any) => {
-  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
-  console.log('Trigger AI Generation for:', section, payload)
-  alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\nข้อมูลอ้างอิง: ${payload || 'ไม่มี'}\n(รอ Backend เชื่อมต่อ API)`)
+const handleAIGenerate = async (section: string, payload?: any) => {
+  const aiService = AIService.getInstance()
+
+  const typeMap: Record<string, GenerationType> = {
+    'course_description': GenerationType.COURSE_DESCRIPTION,
+  }
+
+  const type = typeMap[section]
+  if (!type) return
+
+  loadingAI.value[section] = true
+  try {
+    const response = await aiService.generate(type, payload)
+    if (response.success) {
+      const data = response.data
+
+      if (section === 'course_description' && payload?.index !== undefined) {
+        const item = form.value.s3_31[payload.index]
+        if (item) {
+          item.descTh = data.descTh
+          item.descEn = data.descEn
+        }
+      }
+    } else {
+      alert(`AI Error: ${response.error}`)
+    }
+  } catch (err: any) {
+    alert(`Unexpected Error: ${err.message}`)
+  } finally {
+    loadingAI.value[section] = false
+  }
 }
 
 // ================= Helper Functions =================
@@ -246,7 +276,10 @@ const scrollToSec = (id: string) => {
                   <div class="fs-field" style="grid-column: 1 / -1;"><label>คำอธิบายรายวิชา (ไทย)</label><textarea v-model="item.descTh" class="field !bg-[#FEFDFA]"></textarea></div>
                   <div class="fs-field" style="grid-column: 1 / -1;"><label>Course Description (English)</label><textarea v-model="item.descEn" class="field !bg-[#FEFDFA]"></textarea></div>
                   <div class="fs-field" style="grid-column: 1 / -1;">
-                    <button type="button" @click="handleAIGenerate('course_description', item.nameTh)" class="ai-btn"><UIcon name="i-heroicons-sparkles" class="w-4 h-4"/> AI ช่วยร่างคำอธิบายวิชานี้</button>
+                    <button type="button" :disabled="loadingAI['course_description']" @click="handleAIGenerate('course_description', { index: idx, nameTh: item.nameTh })" class="ai-btn">
+  <UIcon :name="loadingAI['course_description'] ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'" :class="{ 'animate-spin': loadingAI['course_description'] }" class="w-4 h-4"/>
+  {{ loadingAI['course_description'] ? 'กำลังสร้าง...' : 'AI ช่วยร่างคำอธิบายวิชานี้' }}
+</button>
                   </div>
                 </div>
                 <button type="button" class="slist-del" @click="removeS3_31(idx)">✕</button>
