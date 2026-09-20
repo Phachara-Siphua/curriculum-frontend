@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Subject } from 'app/types/curriculum'
+import type { Subject } from '~/types/curriculum'
 
 const emit = defineEmits<{
   select: [subject: Subject]

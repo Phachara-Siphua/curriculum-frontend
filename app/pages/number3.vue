@@ -1,14 +1,18 @@
 <!-- pages/number3.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-
+import { getSteps } from '~/constants/toc'
 const route = useRoute()
 const router = useRouter()
+
+// ===== Focus mode =====
+const { isFocused, currentIndex, currentStep, isVisible, focusAnchor, next: nextStep, prev: prevStep, showAll, steps } = useFocusMode(getSteps('3'))
+
 const programId = ref<string | null>(null)
 
 // รายชื่อหัวข้อทั้ง 43 หัวข้อ
 const sectionTitles = [
-  "ระบบ", "การจัดการศึกษาภาคฤดูร้อน", "การเทียบเคียงหน่วยกิตในระบบทวิภาค", "วัน-เวลาในการดำเนินการเรียนการสอน", "คุณสมบัติของผู้เข้าศึกษา",
+  "ระบบการจัดการศึกษา", "การจัดการศึกษาภาคฤดูร้อน", "การเทียบเคียงหน่วยกิตในระบบทวิภาค", "วัน-เวลาในการดำเนินการเรียนการสอน", "คุณสมบัติของผู้เข้าศึกษา",
   "ปัญหาของนักศึกษาแรกเข้า", "กลยุทธ์ในการดำเนินการเพื่อแก้ไขปัญหาของนักศึกษาแรกเข้า", "แผนการรับนักศึกษาและผู้สำเร็จการศึกษาในระยะ 5 ปี", "งบประมาณรายรับ", "งบประมาณรายจ่าย",
   "ระบบการศึกษา", "การเทียบโอนหน่วยกิต รายวิชาและการลงทะเบียนเรียนข้ามมหาวิทยาลัย", "โครงสร้างหลักสูตร", "รายวิชา — หมวดวิชาศึกษาทั่วไป ก. กลุ่มวิชาภาษา", "รายวิชา — หมวดวิชาศึกษาทั่วไป ข. กลุ่มวิชาบูรณาการ",
   "รายวิชา — หมวดวิชาศึกษาทั่วไป ค. กลุ่มวิชาสังคมศาสตร์และมนุษยศาสตร์", "รายวิชา — หมวดวิชาศึกษาทั่วไป ง. กลุ่มวิชาวิทยาศาสตร์และคณิตศาสตร์", "รายวิชา — หมวดวิชาศึกษาทั่วไป จ. กลุ่มวิชากีฬาและนันทนาการ", "รายวิชา — หมวดวิชาเฉพาะ ก. กลุ่มวิชาแกน", "รายวิชา — กลุ่มวิชาชีพ (บังคับเฉพาะแขนง) แขนงวิชาโทรคมนาคม",
@@ -40,7 +44,6 @@ const form = ref<any>({
 
 // ================= AI Integration =================
 const handleAIGenerate = (section: string, payload?: any) => {
-  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
   console.log('Trigger AI Generation for:', section, payload)
   alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\nข้อมูลอ้างอิง: ${payload || 'ไม่มี'}\n(รอ Backend เชื่อมต่อ API)`)
 }
@@ -62,18 +65,26 @@ const addS3_32 = () => { form.value.s3_32.push({ name: '', position: '', degree:
 const removeS3_32 = (idx: number) => { form.value.s3_32.splice(idx, 1); if(form.value.s3_32.length === 0) form.value.s3_32.push({ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }) }
 
 const doneState = ref<Record<number, boolean>>({})
-const toggleDone = (index: number) => { doneState.value[index] = !doneState.value[index] }
+const keyToAnchor = (i: number) => 'sec-3-' + (i + 1)
+const toggleDone = (index: number) => { 
+  doneState.value[index] = !doneState.value[index]
+  if (import.meta.client) {
+    localStorage.setItem(`done-${keyToAnchor(index)}`, doneState.value[index] ? '1' : '0')
+    window.dispatchEvent(new Event('storage')) 
+  }
+}
 
-onMounted(() => { if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string } })
+onMounted(() => { 
+  if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string }
+  if (!import.meta.client) return
+  ;(Object.keys(sectionTitles) as unknown as number[]).forEach((i) => {
+    doneState.value[i] = localStorage.getItem(`done-${keyToAnchor(i)}`) === '1'
+  })
+})
 
 const isSavingDraft = ref(false); const isSavingNext = ref(false)
 const saveDraft = async () => { isSavingDraft.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingDraft.value = false; }
 const saveAndNext = async () => { isSavingNext.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingNext.value = false; router.push({ path: '/number4', query: { id: programId.value } }) }
-
-const scrollToSec = (id: string) => {
-  const el = document.getElementById(id)
-  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('pulse'); setTimeout(() => el.classList.remove('pulse'), 1200) }
-}
 </script>
 
 <template>
@@ -90,22 +101,28 @@ const scrollToSec = (id: string) => {
         <h1 class="doc-title">ระบบการจัดการศึกษา การดำเนินการ และโครงสร้างของหลักสูตร</h1>
       </div>
 
-      <!-- TOC Card -->
-      <div class="toc-card">
-        <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อกระโดดไปยังหัวข้อ (รวม 43 หัวข้อ)</div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[4px_18px] max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-          <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="scrollToSec(`sec-3-${i+1}`)">
+      <!-- 🎯 TOC Card แบบ List (แยก 43 ข้อ ให้เล็งกดง่ายๆ) -->
+      <div v-if="!isFocused" class="toc-card">
+        <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อเลือกกรอกทีละหัวข้อ (รวม 43 หัวข้อ)</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[4px_18px] max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+          <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="focusAnchor(`sec-3-${i+1}`)">
             <div class="toc-dot"></div>
             <span class="toc-num">3.{{ i + 1 }}</span>
-            <span class="lbl">{{ title }}</span>
+            <span class="lbl">
+              {{ title }}
+              <span v-if="i===30" class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold inline-flex items-center gap-1 ml-2"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+            </span>
           </div>
         </div>
       </div>
 
+      <!-- Focus Navigation -->
+      <FocusNav :is-focused="isFocused" :current-index="currentIndex" :total="steps.length" :steps="steps" @show-all="showAll" />
+
       <!-- Main Paper Card -->
       <div class="paper-card">
         
-        <section v-for="(title, i) in sectionTitles" :key="i" :id="`sec-3-${i+1}`" :class="['topic-sec', i===30 ? 'border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]' : '']">
+        <section v-for="(title, i) in sectionTitles" :key="i" :id="`sec-3-${i+1}`" v-show="isVisible(`sec-3-${i+1}`)" :class="['topic-sec', i===30 ? 'border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]' : '']">
           
           <div class="sec-head">
             <div class="sec-number">3.{{ i + 1 }}</div>
@@ -285,6 +302,8 @@ const scrollToSec = (id: string) => {
 
       </div>
 
+      <FocusFooter :is-focused="isFocused" :current-index="currentIndex" :steps="steps" @prev="prevStep" @next="nextStep" />
+
       <!-- Action Footer -->
       <div class="page-footer">
         <button type="button" @click="router.push(`/number2?id=${programId || ''}`)" class="nav-btn">
@@ -304,102 +323,3 @@ const scrollToSec = (id: string) => {
   </div>
 </template>
 
-<style scoped>
-/* ================== CSS สไตล์เดียวกับหน้าอื่นเพื่อความต่อเนื่อง ================== */
-.force-white-btn { color: #ffffff !important; }
-
-.page-shell { max-width: 900px; margin: 0 auto; width: 100%; }
-
-.crumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #736F60; margin-bottom: 14px; }
-.crumb b { color: #1B2A4A; font-weight: 600; }
-.page-badge { margin-left: auto; font-size: 11px; color: #A8793B; border: 1px solid #EEE0C6; background: #fff; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
-
-.doc-head { margin-bottom: 20px; }
-.doc-eyebrow { font-size: 12.5px; color: #A8793B; font-weight: 700; letter-spacing: .03em; margin-bottom: 6px; }
-.doc-title { font-size: 25px; font-weight: 600; color: #1B2A4A; margin: 0; font-family: 'Noto Serif Thai', serif; }
-
-.toc-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 18px 24px 20px; margin-bottom: 18px; }
-.toc-label { font-size: 11.5px; color: #A8793B; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; }
-.toc-grid { display: grid; gap: 4px 18px; }
-.toc-item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #26241E; border: 1px solid transparent; transition: all 0.2s; }
-.toc-item:hover { background: #F3EFE4; }
-.toc-num { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 12.5px; min-width: 28px; flex: none; }
-.toc-dot { width: 7px; height: 7px; border-radius: 50%; background: #E3DCC9; flex: none; transition: background 0.2s; }
-.toc-item.filled .toc-dot { background: #3F6B52; }
-.toc-item span.lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.paper-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 8px 42px 20px; position: relative; }
-
-.topic-sec { padding: 26px 0 30px; border-bottom: 1px solid #E3DCC9; position: relative; }
-.topic-sec:last-child { border-bottom: none; }
-.topic-sec.pulse { animation: pulseSec 1.1s ease; }
-@keyframes pulseSec { 0% { background: #EEE0C6; } 100% { background: transparent; } }
-
-.sec-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
-.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 17px; min-width: 44px; flex: none; }
-.sec-title { font-size: 16.5px; font-weight: 600; color: #1B2A4A; flex: 1; margin: 0; line-height: 1.4; }
-.sec-check { flex: none; border: 1px solid #E3DCC9; background: #fff; color: #736F60; border-radius: 7px; padding: 6px 12px; font-size: 11.8px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
-.sec-check.on { background: #E4EEE7 !important; border-color: #3F6B52 !important; color: #3F6B52 !important; }
-.sec-hint { font-size: 12.8px; color: #736F60; line-height: 1.7; margin: 2px 0 14px; padding-left: 56px; }
-.sec-body { padding-left: 56px; }
-@media (max-width:720px){ .sec-hint, .sec-body { padding-left: 0; } }
-
-.fs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.fs-grid.full { grid-template-columns: 1fr; }
-.fs-field label { display: block; font-size: 12.6px; font-weight: 600; color: #1B2A4A; margin-bottom: 6px; }
-.fs-field label .lang-tag { font-size: 10.6px; font-weight: 500; background: #EEF1F9; color: #4D5FA8; padding: 1px 7px; border-radius: 4px; margin-left: 6px; }
-
-/* Input, Select, Textarea */
-.fs-field input[type=text], .fs-field input[type=number], .fs-field select, textarea.field {
-  width: 100%; border: 1px solid #E3DCC9 !important; border-radius: 8px !important; 
-  padding: 9px 12px !important; font-size: 13.6px !important; background: #FEFDFA !important; 
-  color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; transition: all 0.2s; 
-}
-textarea.field { min-height: 100px; resize: vertical; line-height: 1.7; }
-.fs-field select { cursor: pointer; }
-.fs-field input:focus, .fs-field select:focus, textarea.field:focus { 
-  outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; 
-}
-
-/* AI Button */
-.ai-btn { margin-top: 6px; border: 1px solid #A8793B; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
-.ai-btn:hover { background: #EEE0C6; }
-
-/* Dynamic List Editor */
-.list-editor .list-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
-.list-num { width: 24px; height: 24px; flex: none; margin-top: 3px; border-radius: 50%; background: #F3EFE4; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; color: #1B2A4A; font-family: 'Noto Serif Thai', serif; }
-.list-row input { flex: 1; border: 1px solid #E3DCC9 !important; border-radius: 7px !important; padding: 9px 12px !important; font-size: 13.8px !important; background: #FEFDFA !important; box-shadow: none !important; outline: none !important; }
-.list-row input:focus { border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; }
-.row-del { width: 30px; height: 30px; flex: none; border: 1px solid #E3DCC9; background: #fff; border-radius: 7px; color: #9C4132; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-.row-del:hover { background: #FBECE8; }
-.add-row { margin-top: 6px; border: 1px dashed #C9BFA2; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
-.add-row:hover { background: #EEE0C6; }
-
-/* Structured List */
-.slist-item { display: flex; gap: 12px; align-items: flex-start; background: #F3EFE4; border: 1px solid #E3DCC9; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
-.slist-num { width: 26px; height: 26px; flex: none; border-radius: 50%; background: #1B2A4A; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 2px; font-family: 'Noto Serif Thai', serif; }
-.slist-fields { flex: 1; min-width: 0; }
-.slist-fields .fs-grid { margin-bottom: 0; }
-.slist-fields .fs-field { margin-bottom: 10px; }
-.slist-fields .fs-field:last-child { margin-bottom: 0; }
-.slist-fields .fs-field input, .slist-fields .fs-field select, .slist-fields .fs-field textarea { background: #fff !important; }
-.slist-del { flex: none; border: none; background: none; color: #9C4132; font-size: 17px; margin-top: 2px; border-radius: 5px; padding: 3px 6px; cursor: pointer; transition: 0.2s; }
-.slist-del:hover { background: #FBECE8; }
-
-/* Table Builder */
-table.builder { width: 100%; border-collapse: collapse; margin-top: 4px; }
-table.builder th { background: #1B2A4A; color: #EFE7D6; font-size: 12.3px; font-weight: 600; text-align: left; padding: 9px 12px; border: 1px solid #1B2A4A; }
-table.builder td { border: 1px solid #E3DCC9; padding: 5px 6px; }
-table.builder td input { width: 100%; border: 1px solid transparent !important; background: transparent !important; padding: 6px 8px !important; font-size: 13.4px !important; border-radius: 5px !important; }
-table.builder td input:focus { outline: none !important; border-color: #A8793B !important; background: #EEE0C6 !important; }
-table.builder tr:nth-child(even) td { background: #FCFAF4; }
-.table-del { border: none; background: none; color: #9C4132; font-size: 14px; width: 100%; text-align: center; cursor: pointer;}
-
-.page-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
-.nav-btn { border: 1px solid #E3DCC9; background: #fff; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #1B2A4A; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; }
-.nav-btn:hover:not([disabled]) { border-color: #A8793B; color: #A8793B; }
-.nav-btn[disabled] { opacity: .35; pointer-events: none; }
-
-.btn-brass { background: #1B2A4A; transition: all 0.2s; }
-.btn-brass:hover { background: #2C3E63; }
-</style>

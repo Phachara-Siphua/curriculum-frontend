@@ -1,9 +1,13 @@
 <!-- pages/number4.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-
+import { getSteps } from '~/constants/toc'
 const route = useRoute()
 const router = useRouter()
+
+// ===== Focus mode =====
+const { isFocused, currentIndex, currentStep, isVisible, focusAnchor, next: nextStep, prev: prevStep, showAll, steps } = useFocusMode(getSteps('4'))
+
 const programId = ref<string | null>(null)
 
 // รายชื่อหัวข้อทั้ง 12 หัวข้อของหมวด 4
@@ -22,6 +26,8 @@ const sectionTitles = [
   "แผนที่แสดงการกระจายความรับผิดชอบมาตรฐานผลการเรียนรู้จากหลักสูตรสู่รายวิชา (Curriculum Mapping)"
 ]
 
+const uid = () => Math.random().toString(36).substring(2, 9)
+
 // ================= State ข้อมูลฟอร์ม =================
 const form = ref<any>({
   id: null,
@@ -36,7 +42,25 @@ const form = ref<any>({
   s4_9: [{ code: '', type: '', desc: '' }],
   s4_10: [{ code: '', branch: '', desc: '' }],
   s4_11: [{ code: '', d1: '', d2: '', d3: '', d4: '', d5: '' }],
-  mapState: {} as Record<string, string>
+  mapState: {} as Record<string, string>,
+  
+  // 🎯 เปลี่ยนเป็น Dynamic Array สำหรับ 4.12
+  mapCourseGroups: [
+    {
+      group: 'ก. กลุ่มวิชาภาษา (หมวดวิชาศึกษาทั่วไป)',
+      courses: [
+        { _id: uid(), code: '080103001', nameTh: 'ภาษาอังกฤษ 1', nameEn: 'English I', credits: '3(3-0-6)' },
+        { _id: uid(), code: '080103002', nameTh: 'ภาษาอังกฤษ 2', nameEn: 'English II', credits: '3(3-0-6)' }
+      ]
+    },
+    {
+      group: 'ก. กลุ่มวิชาแกน (หมวดวิชาเฉพาะ)',
+      courses: [
+        { _id: uid(), code: '040203111', nameTh: 'คณิตศาสตร์วิศวกรรม 1', nameEn: 'Engineering Mathematics I', credits: '3(3-0-6)' },
+        { _id: uid(), code: '030413100', nameTh: 'การวิเคราะห์วงจรไฟฟ้า 1', nameEn: 'Electric Circuit Analysis I', credits: '3(3-0-6)' }
+      ]
+    }
+  ]
 })
 
 const eloTypes = ['S — เฉพาะทาง (Specific)', 'G — ทั่วไป (General)']
@@ -44,7 +68,6 @@ const branchOptions = ['แขนงวิชาโทรคมนาคม (T)'
 
 // ================= AI Integration =================
 const handleAIGenerate = (section: string, payload?: any) => {
-  // TODO: สำหรับ Backend นำไปต่อ API สร้างเนื้อหาด้วย AI
   console.log('Trigger AI Generation for:', section, payload)
   alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\n(รอ Backend เชื่อมต่อ API)`)
 }
@@ -57,9 +80,22 @@ const removeList = (key: string, idx: number, emptyObj: any) => {
 }
 
 const doneState = ref<Record<number, boolean>>({})
-const toggleDone = (index: number) => { doneState.value[index] = !doneState.value[index] }
+const keyToAnchor = (i: number) => 'sec-4-' + (i + 1)
+const toggleDone = (index: number) => { 
+  doneState.value[index] = !doneState.value[index]
+  if (import.meta.client) {
+    localStorage.setItem(`done-${keyToAnchor(index)}`, doneState.value[index] ? '1' : '0')
+    window.dispatchEvent(new Event('storage')) 
+  }
+}
 
-onMounted(() => { if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string } })
+onMounted(() => { 
+  if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string }
+  if (!import.meta.client) return
+  ;(Object.keys(sectionTitles) as unknown as number[]).forEach((i) => {
+    doneState.value[i] = localStorage.getItem(`done-${keyToAnchor(i)}`) === '1'
+  })
+})
 
 const isSavingDraft = ref(false); const isSavingNext = ref(false)
 const saveDraft = async () => { isSavingDraft.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingDraft.value = false; }
@@ -70,26 +106,32 @@ const scrollToSec = (id: string) => {
   if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('pulse'); setTimeout(() => el.classList.remove('pulse'), 1200) }
 }
 
-// ================= 4.12 Curriculum Mapping Data =================
+// ================= 4.12 Curriculum Mapping Logic =================
 const MAP_DOMAINS = [
   {id:'d1', label:'1. คุณธรรม จริยธรรม'}, {id:'d2', label:'2. ความรู้'}, {id:'d3', label:'3. ทักษะทางปัญญา'},
   {id:'d4', label:'4. ทักษะความสัมพันธ์'}, {id:'d5', label:'5. ทักษะวิเคราะห์เชิงตัวเลขฯ'}
 ]
 const MAP_SUBCOLS = [1,2,3,4,5]
-const MAP_COURSE_GROUPS = [
-  {group:'ก. กลุ่มวิชาภาษา (หมวดวิชาศึกษาทั่วไป)', courses:[
-    {code:'080103001', nameTh:'ภาษาอังกฤษ 1', nameEn:'English I', credits:'3(3-0-6)'},
-    {code:'080103002', nameTh:'ภาษาอังกฤษ 2', nameEn:'English II', credits:'3(3-0-6)'}
-  ]},
-  {group:'ก. กลุ่มวิชาแกน (หมวดวิชาเฉพาะ)', courses:[
-    {code:'040203111', nameTh:'คณิตศาสตร์วิศวกรรม 1', nameEn:'Engineering Mathematics I', credits:'3(3-0-6)'},
-    {code:'030413100', nameTh:'การวิเคราะห์วงจรไฟฟ้า 1', nameEn:'Electric Circuit Analysis I', credits:'3(3-0-6)'}
-  ]}
-]
 
 const cycleCell = (key: string) => {
   const cur = form.value.mapState[key] || '';
   form.value.mapState[key] = cur === '' ? 'o' : cur === 'o' ? 'r' : '';
+}
+
+// เพิ่ม/ลบ กลุ่มและรายวิชา
+const addMappingGroup = () => {
+  form.value.mapCourseGroups.push({ group: '', courses: [{ _id: uid(), code: '', nameTh: '', nameEn: '', credits: '' }] })
+}
+const removeMappingGroup = (gIdx: number) => {
+  form.value.mapCourseGroups.splice(gIdx, 1)
+  if (form.value.mapCourseGroups.length === 0) addMappingGroup()
+}
+const addCourseToMapping = (gIdx: number) => {
+  form.value.mapCourseGroups[gIdx].courses.push({ _id: uid(), code: '', nameTh: '', nameEn: '', credits: '' })
+}
+const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
+  form.value.mapCourseGroups[gIdx].courses.splice(cIdx, 1)
+  if (form.value.mapCourseGroups[gIdx].courses.length === 0) addCourseToMapping(gIdx)
 }
 </script>
 
@@ -107,11 +149,11 @@ const cycleCell = (key: string) => {
         <h1 class="doc-title">ผลการเรียนรู้ กลยุทธ์การสอนและการประเมินผล</h1>
       </div>
 
-      <!-- TOC Card -->
-      <div class="toc-card">
-        <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อกระโดดไปยังหัวข้อ (รวม 12 หัวข้อ)</div>
+      <!-- TOC Card (ซ่อนตอนอยู่ใน Focus Mode) -->
+      <div v-if="!isFocused" class="toc-card">
+        <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อเลือกกรอกทีละหัวข้อ (รวม 12 หัวข้อ)</div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-[4px_18px]">
-          <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="scrollToSec(`sec-4-${i+1}`)">
+          <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="focusAnchor(`sec-4-${i+1}`)">
             <div class="toc-dot"></div>
             <span class="toc-num">4.{{ i + 1 }}</span>
             <span class="lbl">{{ title }}</span>
@@ -119,19 +161,25 @@ const cycleCell = (key: string) => {
         </div>
       </div>
 
+      <!-- Focus Navigation -->
+      <FocusNav :is-focused="isFocused" :current-index="currentIndex" :total="steps.length" :steps="steps" @show-all="showAll" />
+
       <!-- Main Paper Card -->
       <div class="paper-card">
         
         <!-- 4.1 การพัฒนาคุณลักษณะพิเศษ -->
-        <section class="topic-sec" id="sec-4-1">
+        <section class="topic-sec" id="sec-4-1" v-show="isVisible('sec-4-1')">
           <div class="sec-head">
             <div class="sec-number">4.1</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-              <h2 class="sec-title pt-1">{{ sectionTitles[0] }}</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="sec-title pt-1">{{ sectionTitles[0] }}</h2>
+                <span class="text-[10.5px] text-[#A8793B] bg-[#EEE0C6] px-[8px] py-[2px] rounded-full font-bold flex items-center gap-1"><UIcon name="i-heroicons-sparkles" class="w-3 h-3"/> AI Assisted</span>
+              </div>
               <button type="button" class="sec-check" :class="{ 'on': doneState[0] }" @click="toggleDone(0)">{{ doneState[0] ? '✓ กรอกแล้ว' : 'ทำเครื่องหมายว่ากรอกแล้ว' }}</button>
             </div>
           </div>
-          <div class="sec-body">
+          <div class="sec-body md:pl-[56px] mt-4 md:mt-0">
             <div v-for="(item, idx) in form.s4_1" :key="idx" class="slist-item">
               <div class="slist-num">{{ idx + 1 }}</div>
               <div class="slist-fields fs-grid full">
@@ -145,7 +193,7 @@ const cycleCell = (key: string) => {
         </section>
 
         <!-- 4.2 - 4.6 โดเมนการเรียนรู้ทั้ง 5 ด้าน -->
-        <section v-for="i in 5" :key="i" :id="`sec-4-${i+1}`" class="topic-sec">
+        <section v-for="i in 5" :key="i" :id="`sec-4-${i+1}`" v-show="isVisible(`sec-4-${i+1}`)" class="topic-sec">
           <div class="sec-head">
             <div class="sec-number">4.{{ i+1 }}</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -163,7 +211,7 @@ const cycleCell = (key: string) => {
         </section>
 
         <!-- 4.7 ความหมายในตารางรายวิชา -->
-        <section class="topic-sec" id="sec-4-7">
+        <section class="topic-sec" id="sec-4-7" v-show="isVisible('sec-4-7')">
           <div class="sec-head">
             <div class="sec-number">4.7</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -183,7 +231,7 @@ const cycleCell = (key: string) => {
         </section>
 
         <!-- 4.8 ELO ตามกรอบมาตรฐาน (มีปุ่ม AI) -->
-        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-8">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-8" v-show="isVisible('sec-4-8')">
           <div class="sec-head">
             <div class="sec-number">4.8</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -205,7 +253,7 @@ const cycleCell = (key: string) => {
         </section>
 
         <!-- 4.9 ผลการเรียนรู้ที่คาดหวังหลัก (มีปุ่ม AI) -->
-        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-9">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-9" v-show="isVisible('sec-4-9')">
           <div class="sec-head">
             <div class="sec-number">4.9</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -234,7 +282,7 @@ const cycleCell = (key: string) => {
         </section>
 
         <!-- 4.10 ผลการเรียนรู้ที่คาดหวังเฉพาะแขนง (มีปุ่ม AI) -->
-        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-10">
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-10" v-show="isVisible('sec-4-10')">
           <div class="sec-head">
             <div class="sec-number">4.10</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -263,7 +311,7 @@ const cycleCell = (key: string) => {
         </section>
 
         <!-- 4.11 ตารางความสัมพันธ์ TQF กับ ELO -->
-        <section class="topic-sec" id="sec-4-11">
+        <section class="topic-sec" id="sec-4-11" v-show="isVisible('sec-4-11')">
           <div class="sec-head">
             <div class="sec-number">4.11</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -302,8 +350,8 @@ const cycleCell = (key: string) => {
           </div>
         </section>
 
-        <!-- 4.12 Curriculum Mapping (มีปุ่ม AI) -->
-        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-12">
+        <!-- 4.12 Curriculum Mapping (มีปุ่ม AI และเพิ่มแถว/กลุ่มได้) -->
+        <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-12" v-show="isVisible('sec-4-12')">
           <div class="sec-head">
             <div class="sec-number">4.12</div>
             <div class="flex-1 flex flex-col md:flex-row md:justify-between md:items-start gap-2">
@@ -338,29 +386,60 @@ const cycleCell = (key: string) => {
                   </tr>
                 </thead>
                 <tbody>
-                  <template v-for="grp in MAP_COURSE_GROUPS" :key="grp.group">
-                    <tr class="group-row"><th :colspan="MAP_DOMAINS.length * MAP_SUBCOLS.length + 1">{{ grp.group }}</th></tr>
-                    <tr v-for="c in grp.courses" :key="c.code">
-                      <th class="course-meta">
-                        {{ c.nameTh }}
-                        <span class="code">{{ c.code }} · {{ c.nameEn }}</span>
-                        <span class="credits">{{ c.credits }}</span>
+                  <template v-for="(grp, gIdx) in form.mapCourseGroups" :key="gIdx">
+                    
+                    <!-- ส่วนชื่อกลุ่ม -->
+                    <tr class="group-row">
+                      <th :colspan="MAP_DOMAINS.length * MAP_SUBCOLS.length + 1" class="relative group !p-0">
+                        <input v-model="grp.group" class="w-full bg-transparent border-none outline-none text-white font-bold px-[14px] py-[7px] focus:bg-white/10 transition-colors" placeholder="ชื่อกลุ่มวิชา..." />
+                        <button @click="removeMappingGroup(gIdx)" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-red-300 hover:text-red-100 text-xs hidden group-hover:block transition-colors">✕ ลบกลุ่ม</button>
                       </th>
+                    </tr>
+                    
+                    <!-- ส่วนรายวิชาในกลุ่ม -->
+                    <tr v-for="(c, cIdx) in grp.courses" :key="c._id">
+                      <th class="course-meta relative group">
+                        <div class="flex flex-col pr-6">
+                          <input v-model="c.nameTh" placeholder="ชื่อวิชา (ไทย)" class="mapping-input text-[13px] font-semibold text-[#1B2A4A]" />
+                          <div class="flex gap-2">
+                            <input v-model="c.code" placeholder="รหัสวิชา" class="mapping-input text-[11.5px] font-normal text-[#736F60] w-1/3" />
+                            <input v-model="c.nameEn" placeholder="ชื่อวิชา (Eng)" class="mapping-input text-[11.5px] font-normal text-[#736F60] w-2/3" />
+                          </div>
+                          <input v-model="c.credits" placeholder="หน่วยกิต" class="mapping-input text-[11.5px] font-normal text-[#736F60]" />
+                        </div>
+                        <button @click="removeCourseFromMapping(gIdx, cIdx)" type="button" class="absolute right-1 top-2 text-[#9C4132] hover:bg-[#FBECE8] rounded p-1 hidden group-hover:block transition-colors" title="ลบวิชา"><UIcon name="i-heroicons-x-mark" class="w-4 h-4" /></button>
+                      </th>
+                      
+                      <!-- ส่วนคลิกจุด -->
                       <template v-for="d in MAP_DOMAINS" :key="'td'+d.id">
                         <td v-for="n in MAP_SUBCOLS" :key="'td'+d.id+'-'+n">
-                          <button type="button" class="cell-btn" :class="form.mapState[`${c.code}|${d.id}-${n}`] || ''" @click="cycleCell(`${c.code}|${d.id}-${n}`)"></button>
+                          <button type="button" class="cell-btn" :class="form.mapState[`${c._id}|${d.id}-${n}`] || ''" @click="cycleCell(`${c._id}|${d.id}-${n}`)"></button>
                         </td>
                       </template>
                     </tr>
+                    
+                    <!-- แถวสำหรับปุ่มเพิ่มวิชา -->
+                    <tr>
+                      <th class="bg-[#FCFAF4] border-r border-[#E3DCC9] p-2 text-center">
+                        <button type="button" @click="addCourseToMapping(gIdx)" class="text-[12px] text-[#A8793B] font-semibold hover:underline">+ เพิ่มวิชาในกลุ่มนี้</button>
+                      </th>
+                      <td :colspan="MAP_DOMAINS.length * MAP_SUBCOLS.length" class="bg-[#FCFAF4]"></td>
+                    </tr>
+
                   </template>
                 </tbody>
               </table>
             </div>
 
+            <button type="button" class="add-row mt-3" @click="addMappingGroup()">+ เพิ่มกลุ่มวิชาใหม่</button>
+
           </div>
         </section>
 
       </div>
+
+      <!-- Focus Footer -->
+      <FocusFooter :is-focused="isFocused" :current-index="currentIndex" :steps="steps" @prev="prevStep" @next="nextStep" />
 
       <!-- Action Footer -->
       <div class="page-footer">
@@ -382,112 +461,30 @@ const cycleCell = (key: string) => {
 </template>
 
 <style scoped>
-/* ================== CSS สไตล์เดียวกับหน้าอื่นเพื่อความต่อเนื่อง ================== */
-.force-white-btn { color: #ffffff !important; }
-
-.page-shell { max-width: 900px; margin: 0 auto; width: 100%; }
-
-.crumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #736F60; margin-bottom: 14px; }
-.crumb b { color: #1B2A4A; font-weight: 600; }
-.page-badge { margin-left: auto; font-size: 11px; color: #A8793B; border: 1px solid #EEE0C6; background: #fff; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
-
-.doc-head { margin-bottom: 20px; }
-.doc-eyebrow { font-size: 12.5px; color: #A8793B; font-weight: 700; letter-spacing: .03em; margin-bottom: 6px; }
-.doc-title { font-size: 25px; font-weight: 600; color: #1B2A4A; margin: 0; font-family: 'Noto Serif Thai', serif; }
-
-.toc-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 18px 24px 20px; margin-bottom: 18px; }
-.toc-label { font-size: 11.5px; color: #A8793B; font-weight: 700; letter-spacing: .04em; margin-bottom: 10px; }
-.toc-item { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #26241E; border: 1px solid transparent; transition: all 0.2s; }
-.toc-item:hover { background: #F3EFE4; }
-.toc-num { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 12.5px; min-width: 24px; flex: none; }
-.toc-dot { width: 7px; height: 7px; border-radius: 50%; background: #E3DCC9; flex: none; transition: background 0.2s; }
-.toc-item.filled .toc-dot { background: #3F6B52; }
-.toc-item span.lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.paper-card { background: #fff; border: 1px solid #E3DCC9; border-radius: 10px; box-shadow: 0 18px 40px -18px rgba(27,42,74,.28); padding: 8px 42px 20px; position: relative; }
-
-.topic-sec { padding: 26px 0 30px; border-bottom: 1px solid #E3DCC9; position: relative; }
-.topic-sec:last-child { border-bottom: none; }
-.topic-sec.pulse { animation: pulseSec 1.1s ease; }
-@keyframes pulseSec { 0% { background: #EEE0C6; } 100% { background: transparent; } }
-
-.sec-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
-.sec-number { font-family: 'Noto Serif Thai', serif; font-weight: 700; color: #A8793B; font-size: 17px; min-width: 32px; flex: none; }
-.sec-title { font-size: 16.5px; font-weight: 600; color: #1B2A4A; flex: 1; margin: 0; line-height: 1.4; }
-.sec-check { flex: none; border: 1px solid #E3DCC9; background: #fff; color: #736F60; border-radius: 7px; padding: 6px 12px; font-size: 11.8px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
-.sec-check.on { background: #E4EEE7 !important; border-color: #3F6B52 !important; color: #3F6B52 !important; }
-.sec-hint { font-size: 12.8px; color: #736F60; line-height: 1.7; margin: 2px 0 14px; padding-left: 44px; }
-.sec-body { padding-left: 44px; }
-@media (max-width:720px){ .sec-body, .sec-hint { padding-left: 0; } }
-
-.fs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.fs-grid.full { grid-template-columns: 1fr; }
-.fs-field label { display: block; font-size: 12.6px; font-weight: 600; color: #1B2A4A; margin-bottom: 6px; }
-.fs-field label .lang-tag { font-size: 10.6px; font-weight: 500; background: #EEF1F9; color: #4D5FA8; padding: 1px 7px; border-radius: 4px; margin-left: 6px; }
-
-/* Input, Select, Textarea */
-.fs-field input[type=text], .fs-field input[type=number], .fs-field select, textarea.field {
-  width: 100%; border: 1px solid #E3DCC9 !important; border-radius: 8px !important; 
-  padding: 9px 12px !important; font-size: 13.6px !important; background: #FEFDFA !important; 
-  color: #26241E !important; font-family: 'Sarabun', sans-serif !important; box-shadow: none !important; transition: all 0.2s; 
-}
-textarea.field { min-height: 100px; resize: vertical; line-height: 1.7; }
-.fs-field select { cursor: pointer; }
-.fs-field input:focus, .fs-field select:focus, textarea.field:focus { 
-  outline: none !important; border-color: #A8793B !important; box-shadow: 0 0 0 3px #EEE0C6 !important; 
-}
-
-/* AI Button */
-.ai-btn { margin-top: 6px; border: 1px solid #A8793B; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
-.ai-btn:hover { background: #EEE0C6; }
-
-/* Structured List */
-.slist-item { display: flex; gap: 12px; align-items: flex-start; background: #F3EFE4; border: 1px solid #E3DCC9; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
-.slist-num { width: 26px; height: 26px; flex: none; border-radius: 50%; background: #1B2A4A; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 2px; font-family: 'Noto Serif Thai', serif; }
-.slist-fields { flex: 1; min-width: 0; }
-.slist-fields .fs-grid { margin-bottom: 0; }
-.slist-fields .fs-field { margin-bottom: 10px; }
-.slist-fields .fs-field:last-child { margin-bottom: 0; }
-.slist-fields .fs-field input, .slist-fields .fs-field select, .slist-fields .fs-field textarea { background: #fff !important; }
-.slist-del { flex: none; border: none; background: none; color: #9C4132; font-size: 17px; margin-top: 2px; border-radius: 5px; padding: 3px 6px; cursor: pointer; transition: 0.2s; }
-.slist-del:hover { background: #FBECE8; }
-.add-row { margin-top: 6px; border: 1px dashed #C9BFA2; background: #FDFBF4; color: #A8793B; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
-.add-row:hover { background: #EEE0C6; }
-
-/* Table Builder */
-table.builder { width: 100%; border-collapse: collapse; margin-top: 4px; }
-table.builder th { background: #1B2A4A; color: #EFE7D6; font-size: 12.3px; font-weight: 600; text-align: left; padding: 9px 12px; border: 1px solid #1B2A4A; }
-table.builder td { border: 1px solid #E3DCC9; padding: 5px 6px; }
-table.builder td input { width: 100%; border: 1px solid transparent !important; background: transparent !important; padding: 6px 8px !important; font-size: 13.4px !important; border-radius: 5px !important; }
-table.builder td input:focus { outline: none !important; border-color: #A8793B !important; background: #EEE0C6 !important; }
-table.builder tr:nth-child(even) td { background: #FCFAF4; }
-.table-del { border: none; background: none; color: #9C4132; font-size: 14px; width: 100%; text-align: center; cursor: pointer;}
-
-/* ---------- MAPPING ---------- */
-.map-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; font-size: 12.5px; color: #736F60; }
+/* ---------- MAPPING (ใช้เฉพาะหน้า 4) ---------- */
+.map-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; font-size: var(--fs-hint); color: var(--c-text-muted); }
 .map-legend .it { display: flex; align-items: center; gap: 7px; }
-.chip { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border: 1px solid #E3DCC9; }
-.chip.r { background: #1B2A4A; color: #fff; border-color: #1B2A4A; }
-.chip.i { background: #EEE0C6; color: #A8793B; border-color: #A8793B; }
-.map-scroll { overflow: auto; border: 1px solid #E3DCC9; border-radius: 10px; max-height: 480px; }
-table.mapping { border-collapse: separate; border-spacing: 0; font-size: 12.6px; min-width: 1000px; }
-table.mapping th, table.mapping td { border-bottom: 1px solid #E3DCC9; border-right: 1px solid #E3DCC9; white-space: nowrap; }
-table.mapping thead th { position: sticky; top: 0; background: #1B2A4A; color: #fff; padding: 10px 12px; font-weight: 600; z-index: 2; }
-table.mapping thead th.corner { left: 0; z-index: 4; background: #1B2A4A; }
-table.mapping tbody th { position: sticky; left: 0; background: #F3EFE4; text-align: left; padding: 10px 14px; font-weight: 600; color: #1B2A4A; z-index: 1; max-width: 230px; white-space: normal; line-height: 1.4; }
+.chip { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border: 1px solid var(--c-border); }
+.chip.r { background: var(--c-primary); color: #fff; border-color: var(--c-primary); }
+.chip.i { background: var(--c-gold-light); color: var(--c-gold); border-color: var(--c-gold); }
+.map-scroll { overflow: auto; border: 1px solid var(--c-border); border-radius: 10px; max-height: 480px; }
+table.mapping { border-collapse: separate; border-spacing: 0; font-size: var(--fs-input); min-width: 1000px; }
+table.mapping th, table.mapping td { border-bottom: 1px solid var(--c-border); border-right: 1px solid var(--c-border); white-space: nowrap; }
+table.mapping thead th { position: sticky; top: 0; background: var(--c-primary); color: #fff; padding: 10px 12px; font-weight: 600; z-index: 2; font-size: var(--fs-label); }
+table.mapping thead th.corner { left: 0; z-index: 4; background: var(--c-primary); }
+table.mapping tbody th { position: sticky; left: 0; background: var(--c-bg-main); text-align: left; padding: 10px 14px; font-weight: 600; color: var(--c-primary); z-index: 1; max-width: 230px; white-space: normal; line-height: 1.4; }
 table.mapping td { text-align: center; padding: 0; }
+table.mapping tbody tr.group-row th { background: var(--c-primary); color: #fff; text-align: left; font-size: var(--fs-label); letter-spacing: .02em; }
 .cell-btn { width: 100%; height: 38px; border: none; background: transparent; font-size: 13px; font-weight: 700; color: transparent; cursor: pointer; transition: 0.1s; }
-.cell-btn.i { color: #A8793B; background: #FDFBF4; }
-.cell-btn.r { color: #1B2A4A; background: #EEE0C6; }
+.cell-btn.o { color: var(--c-gold); background: #FDFBF4; }
+.cell-btn.r { color: var(--c-primary); background: var(--c-gold-light); }
 .cell-btn:hover { background: #F1E9D6; }
 .cell-btn.o::after { content: '○'; }
 .cell-btn.r::after { content: '●'; }
 
-.page-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
-.nav-btn { border: 1px solid #E3DCC9; background: #fff; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #1B2A4A; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; }
-.nav-btn:hover:not([disabled]) { border-color: #A8793B; color: #A8793B; }
-.nav-btn[disabled] { opacity: .35; pointer-events: none; }
-
-.btn-brass { background: #1B2A4A; transition: all 0.2s; }
-.btn-brass:hover { background: #2C3E63; }
+.mapping-input {
+  width: 100%; background: transparent; border: 1px solid transparent; border-bottom: 1px dashed rgba(168,121,59,0.3);
+  border-radius: 4px 4px 0 0; padding: 3px 6px; margin-bottom: 2px; transition: all 0.2s; font-size: var(--fs-input);
+}
+.mapping-input:focus, .mapping-input:hover { background: #fff !important; border: 1px solid var(--c-gold) !important; outline: none; }
 </style>
