@@ -12,7 +12,4 @@ export default defineNuxtConfig({
        apiBase: 'http://localhost:8000' // or your deployed API URL
      }
    },
-  routeRules: {
-    '/': { redirect: '/number1' }
-  }
 })

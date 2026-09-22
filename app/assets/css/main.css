@@ -19,7 +19,7 @@
   --c-text-muted: #6B6B6B;     
   --c-danger: #D32F2F;         
 
-  --fs-h1: 32px;        
+  --fs-h1: 34px;        
   --fs-h2: 21px;        
   --fs-num: 24px;       
   --fs-label: 16px;     
@@ -57,7 +57,7 @@ body {
    🔧 บังคับองค์ประกอบทั้งหมดให้ใช้สีธีมใหม่ (ทับค่าเดิม)
 ========================================================= */
 .force-white-btn { color: #ffffff !important; }
-.page-shell { max-width: 1400px; margin: 0 auto; width: 100%; }
+.page-shell { max-width: 1200px; margin: 0 auto; width: 100%; }
 
 .crumb { display: flex; align-items: center; gap: 8px; font-size: var(--fs-hint); color: var(--c-text-muted); margin-bottom: 14px; }
 .crumb b { color: var(--c-primary); font-weight: 600; }

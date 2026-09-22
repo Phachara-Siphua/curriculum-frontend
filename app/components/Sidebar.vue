@@ -167,7 +167,7 @@ const groupDone = (key: string) => {
 .comp-group.done .comp-no { background: #2E7D32; border-color: #2E7D32; color: #fff; }
 .comp-group.active .comp-no { background: #9C7853; border-color: #9C7853; color: #fff; }
 
-.comp-title { flex: 1; font-size: 14px; line-height: 1.4; color: #EFEFEF; }
+.comp-title { flex: 1; font-size: 16px; line-height: 1.4; color: #EFEFEF; }
 .comp-group.active .comp-title { color: #fff; font-weight: 700; }
 
 .comp-page-tag {
@@ -186,13 +186,13 @@ const groupDone = (key: string) => {
 .sub-list { overflow: hidden; transition: max-height .3s ease-in-out; }
 .sub-item {
   display: flex; align-items: center; gap: 10px; padding: 9px 18px 9px 48px;
-  font-size: 13.5px; cursor: pointer; color: #B0B0B0;
+  font-size: 13.5px; cursor: pointer; color: #e0e0e0;
   text-decoration: none; transition: background 0.2s;
 }
 .sub-item:hover { background: rgba(255,255,255,.03); color: #EFEFEF; }
 .sub-item.filled .sub-dot { background: #2E7D32; }
 .sub-dot { width: 7px; height: 7px; border-radius: 50%; background: #555555; flex: none; }
-.sub-num { font-size: 11.5px; color: #888888; flex: none; font-family: 'Noto Serif Thai', serif; min-width: 32px; font-weight: 600; }
+.sub-num { font-size: 11.5px; color: #e0e0e0; flex: none; font-family: 'Noto Serif Thai', serif; min-width: 32px; font-weight: 600; }
 .sub-item .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .overview-link { opacity: .7; font-weight: 500; }
 .overview-link:hover { opacity: 1; }

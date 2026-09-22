@@ -1,7 +1,7 @@
 <!-- layouts/default.vue -->
 <script setup lang="ts">
-// โครงหน้าหลัก: แถบบน + เมนูซ้าย (accordion) + พื้นที่เนื้อหา
-// เนื้อหาของแต่ละหมวดอยู่ในไฟล์ pages/* ผ่าน <slot />
+// Nuxt จะรู้จัก useRoute() เองอัตโนมัติ
+const route = useRoute()
 </script>
 
 <template>
@@ -9,9 +9,11 @@
     <AppHeader />
 
     <div class="body-row">
-      <Sidebar />
+      <!-- ซ่อน Sidebar ถ้า URL เป็นหน้าแรกสุด ('/') -->
+      <Sidebar v-if="route.path !== '/'" />
 
-      <main id="main-scroll" class="main custom-scrollbar">
+      <!-- เพิ่ม class จัดหน้าให้สวยงามเมื่อไม่มี Sidebar -->
+      <main id="main-scroll" class="main custom-scrollbar" :class="{ 'no-sidebar-mode': route.path === '/' }">
         <slot />
       </main>
     </div>
@@ -22,6 +24,13 @@
 .shell { display: flex; flex-direction: column; height: 100vh; }
 .body-row { flex: 1; display: flex; min-height: 0; }
 .main { flex: 1; overflow-y: auto; padding: 34px 26px 90px; scroll-behavior: smooth; }
+
+/* 🌟 แก้ไขตรงนี้: เอา display: flex และ center ออก เพื่อให้เนื้อหาไล่จากบนลงล่างตามปกติ */
+.main.no-sidebar-mode {
+  padding: 0;
+  display: block; 
+  background-color: #F3EFE4; 
+}
 
 .main::-webkit-scrollbar { width: 10px; }
 .main::-webkit-scrollbar-thumb { background: rgba(27,42,74,.18); border-radius: 5px; }
