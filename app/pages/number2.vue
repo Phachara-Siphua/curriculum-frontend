@@ -10,7 +10,10 @@ const router = useRouter()
 const { isFocused, currentIndex, currentStep, isVisible, focusAnchor, next: nextStep, prev: prevStep, showAll, steps } = useFocusMode(getSteps('2'))
 
 const config = useRuntimeConfig()
-const API_BASE = config.public.apiBase as string
+const API_BASE = (config.public.apiBase as string) || 'http://localhost:8000'
+
+// 🌟 ตัวแปรเก็บ ID หลักสูตรแยกต่างหาก เพื่อป้องกันความสับสน
+const programId = ref<string | null>(null)
 
 // ================= State ข้อมูลฟอร์มหน้า 2 =================
 const form = ref({ 
@@ -64,22 +67,26 @@ async function loadProgram(id: string | number) {
       form.value.yloComputer = parsed.computer?.length ? parsed.computer : [{ year: '', desc: '' }]
       form.value.yloInstrument = parsed.instrument?.length ? parsed.instrument : [{ year: '', desc: '' }]
       form.value.yloBroadcast = parsed.broadcast?.length ? parsed.broadcast : [{ year: '', desc: '' }]
-    } catch (err) {
-      console.error('Failed to load ELO framework', err)
+    } catch (err: any) {
+      if (err?.response?.status !== 404) console.error('Failed to load ELO framework', err)
     }
 
-    form.value.devPlans = data.development_plans?.length
-      ? [...data.development_plans].sort((a: any, b: any) => a.sort_order - b.sort_order).map((p: any) => ({
+    try {
+      const devPlans: any = await $fetch(`${API_BASE}/programs/${id}/development-plans/`)
+      if (devPlans && devPlans.length > 0) {
+        form.value.devPlans = devPlans.sort((a: any, b: any) => a.sort_order - b.sort_order).map((p: any) => ({
           plan: p.plan ?? '', strategy: p.strategy ?? '', indicator: p.indicator ?? ''
         }))
-      : [{ plan: '', strategy: '', indicator: '' }]
+      }
+    } catch (err: any) {
+      if (err?.response?.status !== 404) console.error('Failed to load development plans', err)
+    }
   } catch (err: any) {
     console.error('Failed to load program', err)
-
     const status = err?.response?.status ?? err?.statusCode
     if (status === 404) {
-      loadError.value = 'ไม่พบข้อมูลหลักสูตรนี้แล้ว กำลังพากลับไปหน้า 1'
-      router.replace({ path: '/number1' })
+      alert('ไม่พบข้อมูลหลักสูตรนี้ กำลังพากลับไปหน้าแรก')
+      router.replace({ path: '/' })
     } else {
       loadError.value = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่'
     }
@@ -90,8 +97,12 @@ async function loadProgram(id: string | number) {
 
 onMounted(() => {
   if (route.query.id) {
+    programId.value = route.query.id as string
     form.value.id = route.query.id as string
     loadProgram(form.value.id)
+  } else {
+    alert('ไม่พบรหัสหลักสูตร กรุณาเริ่มทำจากหน้าแรก')
+    router.push('/')
   }
 })
 
@@ -118,20 +129,26 @@ const addDevPlan = () => form.value.devPlans.push({ plan: '', strategy: '', indi
 const removeDevPlan = (i: number) => { form.value.devPlans.splice(i, 1); if(form.value.devPlans.length === 0) form.value.devPlans.push({ plan: '', strategy: '', indicator: '' }) }
 
 // ================= Save helpers =================
-async function replaceChildren(programId: string | number, resource: string, items: any[]) {
-  const existing: any[] = await $fetch(`${API_BASE}/programs/${programId}/${resource}/`)
-  await Promise.all(
-    existing.map(e => $fetch(`${API_BASE}/programs/${programId}/${resource}/${e.id}`, { method: 'DELETE' }))
-  )
+async function replaceChildren(pid: string | number, resource: string, items: any[]) {
+  try {
+    const existing: any[] = await $fetch(`${API_BASE}/programs/${pid}/${resource}/`)
+    if (existing && existing.length > 0) {
+      await Promise.all(
+        existing.map(e => $fetch(`${API_BASE}/programs/${pid}/${resource}/${e.id}`, { method: 'DELETE' }))
+      )
+    }
+  } catch (err) {}
+
   for (const item of items) {
-    await $fetch(`${API_BASE}/programs/${programId}/${resource}/`, { method: 'POST', body: item })
+    await $fetch(`${API_BASE}/programs/${pid}/${resource}/`, { method: 'POST', body: item })
   }
 }
 
 async function saveAll() {
-  const id = form.value.id
+  const id = programId.value
   if (!id) throw new Error('ต้องกรอกหน้า 1 และบันทึกก่อน จึงจะมี program id')
 
+  // บันทึกข้อมูล Singleton ในตาราง Program หลัก
   await $fetch(`${API_BASE}/programs/${id}`, {
     method: 'PUT',
     body: {
@@ -142,6 +159,7 @@ async function saveAll() {
     }
   })
 
+  // บันทึก YLO Framework เป็น JSON Singleton
   await $fetch(`${API_BASE}/programs/${id}/elo-framework`, {
     method: 'PUT',
     body: {
@@ -154,6 +172,7 @@ async function saveAll() {
     }
   })
 
+  // บันทึกแผนพัฒนาปรับปรุง (List)
   await replaceChildren(
     id, 'development-plans',
     form.value.devPlans
@@ -166,15 +185,19 @@ async function saveAll() {
 const isSavingDraft = ref(false)
 const isSavingNext = ref(false)
 const saveError = ref('')
+const saveSuccess = ref('')
 
 const saveDraft = async () => {
   isSavingDraft.value = true
   saveError.value = ''
+  saveSuccess.value = ''
   try {
     await saveAll()
-  } catch (err) {
+    saveSuccess.value = 'บันทึกข้อมูลหมวด 2 เรียบร้อยแล้ว'
+    setTimeout(() => { saveSuccess.value = '' }, 3000)
+  } catch (err: any) {
     console.error('Save draft failed', err)
-    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่'
   } finally {
     isSavingDraft.value = false
   }
@@ -185,10 +208,10 @@ const saveAndNext = async () => {
   saveError.value = ''
   try {
     await saveAll()
-    router.push({ path: '/number3', query: { id: form.value.id } })
-  } catch (err) {
+    router.push({ path: '/number3', query: { id: programId.value } })
+  } catch (err: any) {
     console.error('Save and next failed', err)
-    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่'
   } finally {
     isSavingNext.value = false
   }
@@ -216,8 +239,15 @@ onMounted(() => {
 
 <template>
   <div class="page-shell">
-    <form @submit.prevent class="w-full">
+    <form @submit.prevent class="w-full relative">
       
+      <!-- 🌟 แจ้งเตือนสถานะเมื่อโหลดหรือ Error -->
+      <div v-if="isLoading" class="absolute top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 rounded-lg shadow-sm border border-gray-100">
+        <div class="flex items-center gap-2 text-[var(--c-gold)] font-bold">
+          <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" /> กำลังดึงข้อมูล...
+        </div>
+      </div>
+
       <!-- Breadcrumb & Title -->
       <div class="crumb">
         <span>เล่มหลักสูตร</span> › <b>หมวดที่ 2</b>
@@ -485,15 +515,18 @@ onMounted(() => {
       <FocusFooter :is-focused="isFocused" :current-index="currentIndex" :steps="steps" @prev="prevStep" @next="nextStep" />
 
       <!-- Action Footer -->
+      <div v-if="saveError" style="color:#9C4132; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveError }}</div>
+      <div v-if="saveSuccess" style="color:#2E7D32; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveSuccess }}</div>
+
       <div class="page-footer">
-        <button type="button" @click="router.push(`/number1?id=${form.id || ''}`)" class="nav-btn">
+        <button type="button" @click="router.push(`/number1?id=${programId || ''}`)" class="nav-btn">
           ← <span>ข้อมูลทั่วไป</span>
         </button>
         <div class="flex flex-col md:flex-row gap-3">
-          <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
+          <button type="button" @click="saveDraft()" :disabled="isSavingDraft || isSavingNext" class="nav-btn">
             <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
           </button>
-          <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <button type="button" @click="saveAndNext()" :disabled="isSavingNext || isSavingDraft" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
             <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'ระบบการจัดการศึกษา' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
           </button>
         </div>
@@ -502,4 +535,3 @@ onMounted(() => {
     </form>
   </div>
 </template>
-

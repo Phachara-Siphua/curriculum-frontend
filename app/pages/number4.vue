@@ -5,8 +5,10 @@ import { getSteps } from '~/constants/toc'
 const route = useRoute()
 const router = useRouter()
 
-// ===== Focus mode =====
 const { isFocused, currentIndex, currentStep, isVisible, focusAnchor, next: nextStep, prev: prevStep, showAll, steps } = useFocusMode(getSteps('4'))
+
+const config = useRuntimeConfig()
+const API_BASE = (config.public.apiBase as string) || 'http://localhost:8000'
 
 const programId = ref<string | null>(null)
 
@@ -44,7 +46,6 @@ const form = ref<any>({
   s4_11: [{ code: '', d1: '', d2: '', d3: '', d4: '', d5: '' }],
   mapState: {} as Record<string, string>,
   
-  // 🎯 เปลี่ยนเป็น Dynamic Array สำหรับ 4.12
   mapCourseGroups: [
     {
       group: 'ก. กลุ่มวิชาภาษา (หมวดวิชาศึกษาทั่วไป)',
@@ -52,27 +53,199 @@ const form = ref<any>({
         { _id: uid(), code: '080103001', nameTh: 'ภาษาอังกฤษ 1', nameEn: 'English I', credits: '3(3-0-6)' },
         { _id: uid(), code: '080103002', nameTh: 'ภาษาอังกฤษ 2', nameEn: 'English II', credits: '3(3-0-6)' }
       ]
-    },
-    {
-      group: 'ก. กลุ่มวิชาแกน (หมวดวิชาเฉพาะ)',
-      courses: [
-        { _id: uid(), code: '040203111', nameTh: 'คณิตศาสตร์วิศวกรรม 1', nameEn: 'Engineering Mathematics I', credits: '3(3-0-6)' },
-        { _id: uid(), code: '030413100', nameTh: 'การวิเคราะห์วงจรไฟฟ้า 1', nameEn: 'Electric Circuit Analysis I', credits: '3(3-0-6)' }
-      ]
     }
   ]
 })
 
-const eloTypes = ['S — เฉพาะทาง (Specific)', 'G — ทั่วไป (General)']
-const branchOptions = ['แขนงวิชาโทรคมนาคม (T)', 'แขนงวิชาคอมพิวเตอร์ (C)', 'แขนงวิชาเครื่องมือวัดและควบคุม (I)', 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์ (B)']
+// 🌟 แก้ไขตรงนี้: แยกค่า value (สำหรับเซฟ) และ label (สำหรับโชว์) 
+const eloTypes = [
+  { value: 'S', label: 'S — เฉพาะทาง (Specific)' },
+  { value: 'G', label: 'G — ทั่วไป (General)' }
+]
 
-// ================= AI Integration =================
-const handleAIGenerate = (section: string, payload?: any) => {
-  console.log('Trigger AI Generation for:', section, payload)
-  alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\n(รอ Backend เชื่อมต่อ API)`)
+const branchOptions = [
+  { value: 'Telecom', label: 'แขนงวิชาโทรคมนาคม (T)' },
+  { value: 'Computer', label: 'แขนงวิชาคอมพิวเตอร์ (C)' },
+  { value: 'Instrument', label: 'แขนงวิชาเครื่องมือวัดและควบคุม (I)' },
+  { value: 'Broadcast', label: 'แขนงวิชาการกระจายเสียงวิทยุและโทรทัศน์ (B)' }
+]
+
+// ================= Load Data =================
+const isLoading = ref(false)
+const loadError = ref('')
+
+async function loadData() {
+  if (!programId.value) {
+    alert('ไม่พบรหัสหลักสูตร กรุณาเริ่มจากหน้าแรก')
+    router.push('/')
+    return
+  }
+
+  isLoading.value = true
+  try {
+    // โหลด 4.1 - 4.6 (Learning Attributes)
+    try {
+      const attributes: any = await $fetch(`${API_BASE}/programs/${programId.value}/learning-attributes/`)
+      if (attributes && attributes.length > 0) {
+        attributes.forEach((attr: any) => {
+          if (attr.category === '4.1') {
+            form.value.s4_1 = JSON.parse(attr.outcomes || '[{"trait":"","strategy":""}]')
+          } else if (['4.2', '4.3', '4.4', '4.5', '4.6'].includes(attr.category)) {
+            const key = `s4_${attr.category.split('.')[1]}`
+            form.value[key] = { outcomes: attr.outcomes || '', strategy: attr.strategy || '', assessment: attr.assessment || '' }
+          }
+        })
+      }
+    } catch (err: any) { if (err?.response?.status !== 404) console.error('Failed to load attributes', err) }
+
+    // โหลด 4.7 (Learning Dimension)
+    try {
+      const dim: any = await $fetch(`${API_BASE}/programs/${programId.value}/learning-dimension`)
+      if (dim) form.value.s4_7 = { d1: dim.d1||'', d2: dim.d2||'', d3: dim.d3||'', d4: dim.d4||'', d5: dim.d5||'' }
+    } catch (err: any) { if (err?.response?.status !== 404) console.error('Failed to load dimension', err) }
+
+    // โหลด 4.8 - 4.10 (PLO)
+    try {
+      const plos: any = await $fetch(`${API_BASE}/programs/${programId.value}/plo/`)
+      if (plos && plos.length > 0) {
+        const s49: any[] = []; const s410: any[] = []
+        plos.forEach((plo: any) => {
+          if (plo.domain === '4.8') form.value.s4_8 = plo.description_th || ''
+          else if (plo.domain === '4.9') s49.push({ code: plo.plo_code, type: plo.outcome_type, desc: plo.description_th })
+          else if (plo.domain === '4.10') s410.push({ code: plo.plo_code, branch: plo.branch, desc: plo.description_th })
+        })
+        if (s49.length > 0) form.value.s4_9 = s49
+        if (s410.length > 0) form.value.s4_10 = s410
+      }
+    } catch (err: any) { if (err?.response?.status !== 404) console.error('Failed to load PLOs', err) }
+
+    // โหลด 4.11 (TQF Mapping)
+    try {
+      const tqf: any = await $fetch(`${API_BASE}/programs/${programId.value}/plo-tqf-mapping/`)
+      if (tqf && tqf.length > 0) {
+        form.value.s4_11 = tqf.map((t: any) => ({ code: t.plo_code, d1: t.d1?'✓':'', d2: t.d2?'✓':'', d3: t.d3?'✓':'', d4: t.d4?'✓':'', d5: t.d5?'✓':'' }))
+      }
+    } catch (err: any) { if (err?.response?.status !== 404) console.error('Failed to load TQF mapping', err) }
+
+    // โหลด 4.12 (Curriculum Mapping - เก็บไว้ใน learning-topics ชั่วคราว)
+    try {
+      const topics: any = await $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/`)
+      const mapTopic = topics.find((t: any) => t.topic_no === '4.12')
+      if (mapTopic && mapTopic.content) {
+        const parsed = JSON.parse(mapTopic.content)
+        if (parsed.mapCourseGroups) form.value.mapCourseGroups = parsed.mapCourseGroups
+        if (parsed.mapState) form.value.mapState = parsed.mapState
+      }
+    } catch (err: any) {}
+
+  } catch (err) {
+    console.error('Error in loadData', err)
+    loadError.value = 'โหลดข้อมูลไม่สำเร็จ'
+  } finally {
+    isLoading.value = false
+  }
 }
 
-// ================= Helper Functions =================
+// ================= Save Data =================
+const isSavingDraft = ref(false)
+const isSavingNext = ref(false)
+const saveError = ref('')
+const saveSuccess = ref('')
+
+async function replaceChildren(resource: string, items: any[]) {
+  try {
+    const existing: any[] = await $fetch(`${API_BASE}/programs/${programId.value}/${resource}/`)
+    if (existing && existing.length > 0) {
+      await Promise.all(existing.map(e => $fetch(`${API_BASE}/programs/${programId.value}/${resource}/${e.id}`, { method: 'DELETE' })))
+    }
+  } catch (e) {}
+
+  for (const item of items) {
+    await $fetch(`${API_BASE}/programs/${programId.value}/${resource}/`, { method: 'POST', body: item })
+  }
+}
+
+const saveAll = async () => {
+  if (!programId.value) return
+
+  // 1. บันทึก 4.1 - 4.6 (Learning Attributes)
+  const attrsPayload = []
+  attrsPayload.push({ category: '4.1', outcomes: JSON.stringify(form.value.s4_1), sort_order: 1 })
+  for (let i = 2; i <= 6; i++) {
+    const data = form.value[`s4_${i}`]
+    if (data.outcomes.trim() || data.strategy.trim() || data.assessment.trim()) {
+      attrsPayload.push({ category: `4.${i}`, outcomes: data.outcomes, strategy: data.strategy, assessment: data.assessment, sort_order: i })
+    }
+  }
+  await replaceChildren('learning-attributes', attrsPayload)
+
+  // 2. บันทึก 4.7 (Learning Dimension)
+  await $fetch(`${API_BASE}/programs/${programId.value}/learning-dimension`, {
+    method: 'PUT',
+    body: { d1: form.value.s4_7.d1, d2: form.value.s4_7.d2, d3: form.value.s4_7.d3, d4: form.value.s4_7.d4, d5: form.value.s4_7.d5 }
+  })
+
+  // 3. บันทึก 4.8 - 4.10 (PLO)
+  const ploPayload = []
+  if (form.value.s4_8.trim()) ploPayload.push({ domain: '4.8', description_th: form.value.s4_8, sort_order: 1, branch: '' })
+  form.value.s4_9.forEach((p: any, i: number) => {
+    if (p.code.trim()) ploPayload.push({ domain: '4.9', plo_code: p.code, outcome_type: p.type, description_th: p.desc, sort_order: i+2, branch: '' })
+  })
+  form.value.s4_10.forEach((p: any, i: number) => {
+    if (p.code.trim()) ploPayload.push({ domain: '4.10', plo_code: p.code, branch: p.branch, description_th: p.desc, sort_order: i+20 })
+  })
+  await replaceChildren('plo', ploPayload)
+
+  // 4. บันทึก 4.11 (TQF Mapping)
+  const tqfPayload = form.value.s4_11.filter((t: any) => t.code.trim()).map((t: any) => ({
+    plo_code: t.code, d1: !!t.d1, d2: !!t.d2, d3: !!t.d3, d4: !!t.d4, d5: !!t.d5
+  }))
+  await replaceChildren('plo-tqf-mapping', tqfPayload)
+
+  // 5. บันทึก 4.12 Curriculum Mapping ยัดลง learning-topics
+  try {
+    const existingTopics: any[] = await $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/`)
+    const mapTopic = existingTopics.find((t: any) => t.topic_no === '4.12')
+    if (mapTopic) await $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/${mapTopic.id}`, { method: 'DELETE' })
+  } catch (e) {}
+
+  await $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/`, {
+    method: 'POST',
+    body: { topic_no: '4.12', title: sectionTitles[11], content: JSON.stringify({ mapCourseGroups: form.value.mapCourseGroups, mapState: form.value.mapState }), sort_order: 12 }
+  })
+}
+
+const saveDraft = async () => { 
+  isSavingDraft.value = true
+  saveError.value = ''
+  saveSuccess.value = ''
+  try {
+    await saveAll()
+    saveSuccess.value = 'บันทึกข้อมูลหมวด 4 เรียบร้อยแล้ว'
+    setTimeout(() => { saveSuccess.value = '' }, 3000)
+  } catch (err: any) {
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล'
+  } finally {
+    isSavingDraft.value = false 
+  }
+}
+
+const saveAndNext = async () => { 
+  isSavingNext.value = true
+  saveError.value = ''
+  try {
+    await saveAll()
+    router.push({ path: '/number5', query: { id: programId.value } })
+  } catch (err: any) {
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล'
+  } finally {
+    isSavingNext.value = false 
+  }
+}
+
+// ================= AI Integration & Helper Functions =================
+const handleAIGenerate = (section: string, payload?: any) => { alert(`กำลังเรียกใช้ AI สำหรับหมวด: ${section}\n(รอ Backend เชื่อมต่อ API)`) }
+
 const addList = (key: string, emptyObj: any) => { form.value[key].push({...emptyObj}) }
 const removeList = (key: string, idx: number, emptyObj: any) => { 
   form.value[key].splice(idx, 1); 
@@ -90,21 +263,16 @@ const toggleDone = (index: number) => {
 }
 
 onMounted(() => { 
-  if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string }
+  if (route.query.id) { 
+    programId.value = route.query.id as string
+    form.value.id = route.query.id as string
+    loadData()
+  } 
   if (!import.meta.client) return
   ;(Object.keys(sectionTitles) as unknown as number[]).forEach((i) => {
     doneState.value[i] = localStorage.getItem(`done-${keyToAnchor(i)}`) === '1'
   })
 })
-
-const isSavingDraft = ref(false); const isSavingNext = ref(false)
-const saveDraft = async () => { isSavingDraft.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingDraft.value = false; }
-const saveAndNext = async () => { isSavingNext.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingNext.value = false; router.push({ path: '/number5', query: { id: programId.value } }) }
-
-const scrollToSec = (id: string) => {
-  const el = document.getElementById(id)
-  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('pulse'); setTimeout(() => el.classList.remove('pulse'), 1200) }
-}
 
 // ================= 4.12 Curriculum Mapping Logic =================
 const MAP_DOMAINS = [
@@ -118,53 +286,36 @@ const cycleCell = (key: string) => {
   form.value.mapState[key] = cur === '' ? 'o' : cur === 'o' ? 'r' : '';
 }
 
-// เพิ่ม/ลบ กลุ่มและรายวิชา
-const addMappingGroup = () => {
-  form.value.mapCourseGroups.push({ group: '', courses: [{ _id: uid(), code: '', nameTh: '', nameEn: '', credits: '' }] })
-}
-const removeMappingGroup = (gIdx: number) => {
-  form.value.mapCourseGroups.splice(gIdx, 1)
-  if (form.value.mapCourseGroups.length === 0) addMappingGroup()
-}
-const addCourseToMapping = (gIdx: number) => {
-  form.value.mapCourseGroups[gIdx].courses.push({ _id: uid(), code: '', nameTh: '', nameEn: '', credits: '' })
-}
-const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
-  form.value.mapCourseGroups[gIdx].courses.splice(cIdx, 1)
-  if (form.value.mapCourseGroups[gIdx].courses.length === 0) addCourseToMapping(gIdx)
-}
+const addMappingGroup = () => { form.value.mapCourseGroups.push({ group: '', courses: [{ _id: uid(), code: '', nameTh: '', nameEn: '', credits: '' }] }) }
+const removeMappingGroup = (gIdx: number) => { form.value.mapCourseGroups.splice(gIdx, 1); if (form.value.mapCourseGroups.length === 0) addMappingGroup() }
+const addCourseToMapping = (gIdx: number) => { form.value.mapCourseGroups[gIdx].courses.push({ _id: uid(), code: '', nameTh: '', nameEn: '', credits: '' }) }
+const removeCourseFromMapping = (gIdx: number, cIdx: number) => { form.value.mapCourseGroups[gIdx].courses.splice(cIdx, 1); if (form.value.mapCourseGroups[gIdx].courses.length === 0) addCourseToMapping(gIdx) }
 </script>
 
 <template>
   <div class="page-shell">
-    <form @submit.prevent class="w-full">
+    <form @submit.prevent class="w-full relative">
       
-      <!-- Breadcrumb & Title -->
-      <div class="crumb">
-        <span>เล่มหลักสูตร</span> › <b class="text-[#1B2A4A] font-semibold">หมวดที่ 4</b>
-        <span class="page-badge">หน้า 5 / 9</span>
-      </div>
-      <div class="doc-head">
-        <div class="doc-eyebrow">หมวดที่ 4</div>
-        <h1 class="doc-title">ผลการเรียนรู้ กลยุทธ์การสอนและการประเมินผล</h1>
+      <div v-if="isLoading" class="absolute top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 rounded-lg shadow-sm border border-gray-100">
+        <div class="flex items-center gap-2 text-[var(--c-gold)] font-bold">
+          <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" /> กำลังดึงข้อมูล...
+        </div>
       </div>
 
-      <!-- TOC Card (ซ่อนตอนอยู่ใน Focus Mode) -->
+      <div class="crumb"><span>เล่มหลักสูตร</span> › <b class="text-[#1B2A4A] font-semibold">หมวดที่ 4</b><span class="page-badge">หน้า 5 / 9</span></div>
+      <div class="doc-head"><div class="doc-eyebrow">หมวดที่ 4</div><h1 class="doc-title">ผลการเรียนรู้ กลยุทธ์การสอนและการประเมินผล</h1></div>
+
       <div v-if="!isFocused" class="toc-card">
         <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อเลือกกรอกทีละหัวข้อ (รวม 12 หัวข้อ)</div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-[4px_18px]">
           <div v-for="(title, i) in sectionTitles" :key="i" class="toc-item" :class="{ 'filled': doneState[i] }" @click="focusAnchor(`sec-4-${i+1}`)">
-            <div class="toc-dot"></div>
-            <span class="toc-num">4.{{ i + 1 }}</span>
-            <span class="lbl">{{ title }}</span>
+            <div class="toc-dot"></div><span class="toc-num">4.{{ i + 1 }}</span><span class="lbl">{{ title }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Focus Navigation -->
       <FocusNav :is-focused="isFocused" :current-index="currentIndex" :total="steps.length" :steps="steps" @show-all="showAll" />
 
-      <!-- Main Paper Card -->
       <div class="paper-card">
         
         <!-- 4.1 การพัฒนาคุณลักษณะพิเศษ -->
@@ -269,8 +420,12 @@ const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
               <div class="slist-num">{{ idx + 1 }}</div>
               <div class="slist-fields fs-grid">
                 <div class="fs-field"><label>รหัส ELO</label><input v-model="item.code" type="text" class="!bg-[#FEFDFA]" placeholder="เช่น ELO1"/></div>
-                <div class="fs-field"><label>ประเภท</label>
-                  <select v-model="item.type" class="!bg-[#FEFDFA]"><option value="" disabled>-- เลือกประเภท --</option><option v-for="t in eloTypes" :key="t" :value="t">{{ t }}</option></select>
+                <div class="fs-field">
+                  <label>ประเภท</label>
+                  <select v-model="item.type" class="!bg-[#FEFDFA]">
+                    <option value="" disabled>-- เลือกประเภท --</option>
+                    <option v-for="t in eloTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+                  </select>
                 </div>
                 <div class="fs-field" style="grid-column: 1 / -1;"><label>รายละเอียด</label><textarea v-model="item.desc" class="field !bg-[#FEFDFA]" style="min-height:60px"></textarea></div>
               </div>
@@ -298,8 +453,12 @@ const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
               <div class="slist-num">{{ idx + 1 }}</div>
               <div class="slist-fields fs-grid">
                 <div class="fs-field"><label>รหัส ELO</label><input v-model="item.code" type="text" class="!bg-[#FEFDFA]" placeholder="เช่น ELO T.1"/></div>
-                <div class="fs-field"><label>แขนงวิชา</label>
-                  <select v-model="item.branch" class="!bg-[#FEFDFA]"><option value="" disabled>-- เลือกแขนง --</option><option v-for="b in branchOptions" :key="b" :value="b">{{ b }}</option></select>
+                <div class="fs-field">
+                  <label>แขนงวิชา</label>
+                  <select v-model="item.branch" class="!bg-[#FEFDFA]">
+                    <option value="" disabled>-- เลือกแขนง --</option>
+                    <option v-for="b in branchOptions" :key="b.value" :value="b.value">{{ b.label }}</option>
+                  </select>
                 </div>
                 <div class="fs-field" style="grid-column: 1 / -1;"><label>รายละเอียด</label><textarea v-model="item.desc" class="field !bg-[#FEFDFA]" style="min-height:60px"></textarea></div>
               </div>
@@ -335,13 +494,38 @@ const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
                 </thead>
                 <tbody>
                   <tr v-for="(row, idx) in form.s4_11" :key="idx">
-                    <td><input v-model="row.code" type="text" placeholder="ELO1"></td>
-                    <td><input v-model="row.d1" type="text" class="text-center"></td>
-                    <td><input v-model="row.d2" type="text" class="text-center"></td>
-                    <td><input v-model="row.d3" type="text" class="text-center"></td>
-                    <td><input v-model="row.d4" type="text" class="text-center"></td>
-                    <td><input v-model="row.d5" type="text" class="text-center"></td>
-                    <td><button type="button" class="table-del" @click="removeList('s4_11', idx, {code:'',d1:'',d2:'',d3:'',d4:'',d5:''})">✕</button></td>
+                    <td>
+                      <input v-model="row.code" type="text" placeholder="ELO1" class="text-center w-full">
+                    </td>
+                    <!-- 🌟 เปลี่ยนจาก input type text เป็นปุ่มกดสำหรับสลับสถานะ -->
+                    <td class="text-center">
+                      <button type="button" class="w-full h-[38px] text-[16px] font-bold text-green-700 bg-transparent hover:bg-gray-100 transition-colors" @click="row.d1 = row.d1 === '✓' ? '' : '✓'">
+                        {{ row.d1 }}
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button type="button" class="w-full h-[38px] text-[16px] font-bold text-green-700 bg-transparent hover:bg-gray-100 transition-colors" @click="row.d2 = row.d2 === '✓' ? '' : '✓'">
+                        {{ row.d2 }}
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button type="button" class="w-full h-[38px] text-[16px] font-bold text-green-700 bg-transparent hover:bg-gray-100 transition-colors" @click="row.d3 = row.d3 === '✓' ? '' : '✓'">
+                        {{ row.d3 }}
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button type="button" class="w-full h-[38px] text-[16px] font-bold text-green-700 bg-transparent hover:bg-gray-100 transition-colors" @click="row.d4 = row.d4 === '✓' ? '' : '✓'">
+                        {{ row.d4 }}
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button type="button" class="w-full h-[38px] text-[16px] font-bold text-green-700 bg-transparent hover:bg-gray-100 transition-colors" @click="row.d5 = row.d5 === '✓' ? '' : '✓'">
+                        {{ row.d5 }}
+                      </button>
+                    </td>
+                    <td>
+                      <button type="button" class="table-del" @click="removeList('s4_11', idx, {code:'',d1:'',d2:'',d3:'',d4:'',d5:''})">✕</button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -350,7 +534,7 @@ const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
           </div>
         </section>
 
-        <!-- 4.12 Curriculum Mapping (มีปุ่ม AI และเพิ่มแถว/กลุ่มได้) -->
+        <!-- 4.12 Curriculum Mapping -->
         <section class="topic-sec border-l-4 border-l-[#A8793B] pl-[20px] -ml-[24px] bg-[#FDFBF4]" id="sec-4-12" v-show="isVisible('sec-4-12')">
           <div class="sec-head">
             <div class="sec-number">4.12</div>
@@ -387,16 +571,12 @@ const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
                 </thead>
                 <tbody>
                   <template v-for="(grp, gIdx) in form.mapCourseGroups" :key="gIdx">
-                    
-                    <!-- ส่วนชื่อกลุ่ม -->
                     <tr class="group-row">
                       <th :colspan="MAP_DOMAINS.length * MAP_SUBCOLS.length + 1" class="relative group !p-0">
                         <input v-model="grp.group" class="w-full bg-transparent border-none outline-none text-white font-bold px-[14px] py-[7px] focus:bg-white/10 transition-colors" placeholder="ชื่อกลุ่มวิชา..." />
                         <button @click="removeMappingGroup(gIdx)" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-red-300 hover:text-red-100 text-xs hidden group-hover:block transition-colors">✕ ลบกลุ่ม</button>
                       </th>
                     </tr>
-                    
-                    <!-- ส่วนรายวิชาในกลุ่ม -->
                     <tr v-for="(c, cIdx) in grp.courses" :key="c._id">
                       <th class="course-meta relative group">
                         <div class="flex flex-col pr-6">
@@ -409,23 +589,18 @@ const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
                         </div>
                         <button @click="removeCourseFromMapping(gIdx, cIdx)" type="button" class="absolute right-1 top-2 text-[#9C4132] hover:bg-[#FBECE8] rounded p-1 hidden group-hover:block transition-colors" title="ลบวิชา"><UIcon name="i-heroicons-x-mark" class="w-4 h-4" /></button>
                       </th>
-                      
-                      <!-- ส่วนคลิกจุด -->
                       <template v-for="d in MAP_DOMAINS" :key="'td'+d.id">
                         <td v-for="n in MAP_SUBCOLS" :key="'td'+d.id+'-'+n">
                           <button type="button" class="cell-btn" :class="form.mapState[`${c._id}|${d.id}-${n}`] || ''" @click="cycleCell(`${c._id}|${d.id}-${n}`)"></button>
                         </td>
                       </template>
                     </tr>
-                    
-                    <!-- แถวสำหรับปุ่มเพิ่มวิชา -->
                     <tr>
                       <th class="bg-[#FCFAF4] border-r border-[#E3DCC9] p-2 text-center">
                         <button type="button" @click="addCourseToMapping(gIdx)" class="text-[12px] text-[#A8793B] font-semibold hover:underline">+ เพิ่มวิชาในกลุ่มนี้</button>
                       </th>
                       <td :colspan="MAP_DOMAINS.length * MAP_SUBCOLS.length" class="bg-[#FCFAF4]"></td>
                     </tr>
-
                   </template>
                 </tbody>
               </table>
@@ -438,19 +613,21 @@ const removeCourseFromMapping = (gIdx: number, cIdx: number) => {
 
       </div>
 
-      <!-- Focus Footer -->
       <FocusFooter :is-focused="isFocused" :current-index="currentIndex" :steps="steps" @prev="prevStep" @next="nextStep" />
 
       <!-- Action Footer -->
+      <div v-if="saveError" style="color:#9C4132; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveError }}</div>
+      <div v-if="saveSuccess" style="color:#2E7D32; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveSuccess }}</div>
+
       <div class="page-footer">
         <button type="button" @click="router.push(`/number3?id=${programId || ''}`)" class="nav-btn">
           ← <span>ระบบการจัดการศึกษา โครงสร้าง</span>
         </button>
         <div class="flex flex-col md:flex-row gap-3">
-          <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
+          <button type="button" @click="saveDraft()" :disabled="isSavingDraft || isSavingNext" class="nav-btn">
             <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
           </button>
-          <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <button type="button" @click="saveAndNext()" :disabled="isSavingNext || isSavingDraft" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
             <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'หลักเกณฑ์ในการประเมินผล' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
           </button>
         </div>

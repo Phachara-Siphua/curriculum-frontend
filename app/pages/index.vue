@@ -1,77 +1,82 @@
 <!-- pages/index.vue -->
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 const router = useRouter()
 
-// สร้างหลักสูตรใหม่
+const config = useRuntimeConfig()
+const API_BASE = (config.public.apiBase as string) || 'http://localhost:8000'
+
+// 🌟 ตัวแปรเก็บข้อมูลหลักสูตร และสถานะการโหลด
+const recentDrafts = ref<any[]>([])
+const isLoading = ref(true)
+const fetchError = ref('')
+
+// ฟังก์ชันดึงข้อมูลจาก Backend
+const fetchPrograms = async () => {
+  try {
+    isLoading.value = true
+    // เรียก API ดึงข้อมูลหลักสูตรทั้งหมด
+    const response: any = await $fetch(`${API_BASE}/programs/`)
+    
+    // นำข้อมูลที่ได้มาจัดรูปแบบให้เข้ากับ UI ของการ์ด
+    recentDrafts.value = response.map((prog: any) => {
+      // แปลงวันที่อัปเดตล่าสุดให้อ่านง่าย
+      const date = new Date(prog.updated_at)
+      const formattedDate = date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+      
+      let statusText = 'กำลังจัดทำ (ฉบับร่าง)'
+      if (prog.status === 'submitted') statusText = 'ส่งตรวจสอบแล้ว'
+      else if (prog.status === 'approved') statusText = 'อนุมัติแล้ว'
+
+      return {
+        id: prog.id,
+        name: prog.name_th || 'หลักสูตรใหม่ (ยังไม่ได้ระบุชื่อ)',
+        type: prog.program_type || 'ไม่ระบุประเภท',
+        year: prog.open_year || '256X',
+        lastEdited: formattedDate,
+        status: statusText,
+        progress: prog.name_th ? 20 : 5 // สมมติเปอร์เซ็นต์ไปก่อน
+      }
+    })
+  } catch (error) {
+    console.error("ดึงข้อมูลหลักสูตรไม่สำเร็จ:", error)
+    fetchError.value = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อดึงข้อมูลหลักสูตรได้'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// โหลดข้อมูลทันทีที่เปิดหน้าเว็บ
+onMounted(() => {
+  fetchPrograms()
+})
+
+// สร้างหลักสูตรใหม่ (ปรับให้ส่ง type=new)
 const createNewProgram = () => {
-  const newMockId = 'new_' + Date.now()
-  router.push(`/number1?id=${newMockId}&type=new`)
+  router.push(`/number1?type=new`)
 }
 
 // สร้างหลักสูตรปรับปรุง 
 const createRevisedProgram = () => {
-  const reviseMockId = 'rev_' + Date.now()
-  router.push(`/number1?id=${reviseMockId}&type=revise&ref=101`)
+  router.push(`/number1?type=revise`)
 }
 
-// เปิดหลักสูตรที่ทำค้างไว้
-const openDraft = (id: string) => {
+// เปิดหลักสูตรที่ทำค้างไว้ตาม ID จริงจาก Database
+const openDraft = (id: string | number) => {
   router.push(`/number1?id=${id}`)
 }
 
-// 🌟 ข้อมูลจำลอง: รายการหลักสูตรที่ทำค้างไว้ (Recent Drafts)
-const recentDrafts = ref([
-  { 
-    id: 'draft-001', 
-    name: 'วิศวกรรมศาสตรบัณฑิต สาขาวิชาเทคโนโลยีวิศวกรรมอิเล็กทรอนิกส์', 
-    type: 'หลักสูตรปรับปรุง', 
-    year: '2565', 
-    lastEdited: '2 ชั่วโมงที่แล้ว', 
-    status: 'กำลังจัดทำ (ฉบับร่าง)', 
-    progress: 45 
-  },
-  { 
-    id: 'draft-002', 
-    name: 'วิทยาศาสตรบัณฑิต สาขาวิทยาการข้อมูลและการวิเคราะห์', 
-    type: 'หลักสูตรใหม่', 
-    year: '2566', 
-    lastEdited: '1 วันที่แล้ว', 
-    status: 'รอตรวจสอบ', 
-    progress: 100 
-  }
-])
-
-// 🌟 ข้อมูลจำลอง: ไฟล์อ้างอิงและหลักสูตรต้นฉบับ
+// ไฟล์อ้างอิงและหลักสูตรต้นฉบับ
 const referenceFiles = ref([
-  { 
-    id: 'f1', 
-    name: 'แบบ-ล.2-แบบฟอร์มจัดทำหลักสูตร_OBE2_V19.pdf', 
-    size: '7.7 MB', 
-    date: '06/07/2569',
-    url: '/pdf/แบบ-ล.2-แบบฟอร์มจัดทำหลักสูตร_OBE2_V19.pdf' // ชี้ไปที่โฟลเดอร์ pdf ที่อยู่ใน public
-  },
-  { 
-    id: 'f2', 
-    name: 'มคอ.2_EnET_ปรับปรุง2565 (final).pdf', 
-    size: '7.9 MB', 
-    date: '06/07/2569',
-    url: '/pdf/มคอ.2_EnET_ปรับปรุง2565 (final).pdf'
-  },
-  { 
-    id: 'f3', 
-    name: 'มคอ.2_อสบ_ปรับปรุง2565 (v14) (1).pdf', 
-    size: '9.9 MB', 
-    date: '06/07/2569',
-    url: '/pdf/มคอ.2_อสบ_ปรับปรุง2565 (v14) (1).pdf'
-  }
+  { id: 'f1', name: 'แบบ-ล.2-แบบฟอร์มจัดทำหลักสูตร_OBE2_V19.pdf', size: '7.7 MB', date: '06/07/2569', url: '/pdf/แบบ-ล.2-แบบฟอร์มจัดทำหลักสูตร_OBE2_V19.pdf' },
+  { id: 'f2', name: 'มคอ.2_EnET_ปรับปรุง2565 (final).pdf', size: '7.9 MB', date: '06/07/2569', url: '/pdf/มคอ.2_EnET_ปรับปรุง2565 (final).pdf' },
+  { id: 'f3', name: 'มคอ.2_อสบ_ปรับปรุง2565 (v14) (1).pdf', size: '9.9 MB', date: '06/07/2569', url: '/pdf/มคอ.2_อสบ_ปรับปรุง2565 (v14) (1).pdf' }
 ])
 </script>
 
 <template>
   <div class="dashboard-shell flex flex-col items-center pt-12 md:pt-20 min-h-full w-full px-4 pb-24">
     
-    <!-- 🌟 ส่วนที่ 1: Header & ปุ่มสร้างหลักสูตร -->
     <div class="w-full max-w-4xl">
       <div class="text-center mb-10">
         <div class="main-logo mx-auto mb-6">C</div>
@@ -98,7 +103,7 @@ const referenceFiles = ref([
       </div>
     </div>
 
-    <!-- 🌟 ส่วนที่ 2: รายการหลักสูตรที่เปิดล่าสุด (Recent Drafts) -->
+    <!-- 🌟 ส่วนที่ 2: รายการหลักสูตรที่เปิดล่าสุด ดึงจาก Database -->
     <div class="w-full max-w-4xl mb-12">
       <div class="flex items-center justify-between mb-4 border-b border-[var(--c-border)] pb-2">
         <h3 class="text-[16px] font-bold text-[var(--c-primary)] flex items-center gap-2">
@@ -107,7 +112,23 @@ const referenceFiles = ref([
         <button type="button" class="text-[13px] text-[var(--c-gold)] hover:underline font-medium">ดูทั้งหมด</button>
       </div>
 
-      <div class="flex flex-col gap-3">
+      <!-- State: Loading -->
+      <div v-if="isLoading" class="py-8 text-center text-gray-500 text-sm flex justify-center items-center gap-2">
+        <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-[var(--c-gold)]" /> กำลังดึงข้อมูล...
+      </div>
+
+      <!-- State: Error -->
+      <div v-else-if="fetchError" class="py-6 px-4 bg-red-50 text-red-600 rounded-lg text-sm text-center border border-red-100">
+        {{ fetchError }}
+      </div>
+
+      <!-- State: Empty -->
+      <div v-else-if="recentDrafts.length === 0" class="py-10 text-center text-gray-400 border-2 border-dashed border-gray-200 rounded-xl text-sm">
+        ยังไม่มีหลักสูตรในระบบ กด "สร้างหลักสูตรใหม่" ด้านบนเพื่อเริ่มต้น
+      </div>
+
+      <!-- State: Loaded (มีข้อมูล) -->
+      <div v-else class="flex flex-col gap-3">
         <div v-for="draft in recentDrafts" :key="draft.id" @click="openDraft(draft.id)" class="draft-item group">
           <div class="flex items-start md:items-center justify-between w-full flex-col md:flex-row gap-4">
             <div class="flex items-start gap-4 flex-1">
@@ -125,11 +146,11 @@ const referenceFiles = ref([
             <div class="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end pl-14 md:pl-0 border-t border-[var(--c-border)] md:border-none pt-3 md:pt-0">
               <div class="w-24">
                 <div class="flex justify-between text-[11px] mb-1 font-medium">
-                  <span :class="draft.progress === 100 ? 'text-[#2E7D32]' : 'text-[var(--c-primary)]'">{{ draft.status }}</span>
+                  <span class="text-[var(--c-primary)]">{{ draft.status }}</span>
                   <span class="text-[var(--c-text-muted)]">{{ draft.progress }}%</span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                  <div class="h-1.5 rounded-full" :class="draft.progress === 100 ? 'bg-[#4CAF50]' : 'bg-[var(--c-gold)]'" :style="{ width: draft.progress + '%' }"></div>
+                  <div class="h-1.5 rounded-full bg-[var(--c-gold)]" :style="{ width: draft.progress + '%' }"></div>
                 </div>
               </div>
               <UIcon name="i-heroicons-chevron-right" class="w-5 h-5 text-gray-300 group-hover:text-[var(--c-gold)] transition-colors" />
@@ -151,7 +172,6 @@ const referenceFiles = ref([
         <div v-for="file in referenceFiles" :key="file.id" class="file-card group">
           <div class="flex items-start gap-3">
             <div class="w-10 h-10 flex-none rounded bg-[#FFEBEE] text-[#E53935] flex items-center justify-center">
-              <!-- ไอคอน PDF สีแดง -->
               <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                 <polyline points="14 2 14 8 20 8"></polyline>
@@ -168,7 +188,6 @@ const referenceFiles = ref([
               </div>
             </div>
           </div>
-          <!-- ปุ่มดาวน์โหลดจะโผล่มาตอนเอาเมาส์ชี้ -->
           <div class="mt-3 pt-3 border-t border-[var(--c-border)] flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
             <a :href="file.url" target="_blank" download class="text-[12px] font-bold text-[var(--c-gold)] hover:underline flex items-center gap-1">
               <UIcon name="i-heroicons-arrow-down-tray" class="w-3.5 h-3.5" /> ดาวน์โหลด
@@ -183,103 +202,17 @@ const referenceFiles = ref([
 </template>
 
 <style scoped>
-.dashboard-shell {
-  font-family: 'Sarabun', sans-serif;
-  animation: fadeIn 0.4s ease-out;
-}
-
-.main-logo {
-  width: 80px; 
-  height: 80px; 
-  border: 3.5px solid var(--c-primary); 
-  background: rgba(61, 61, 61, 0.06); 
-  border-radius: 16px;
-  display: flex; 
-  align-items: center; 
-  justify-content: center;
-  font-family: 'Noto Serif Thai', serif; 
-  font-weight: 700; 
-  font-size: 42px; 
-  color: var(--c-primary); 
-}
-
-.action-card {
-  background: var(--c-bg-card);
-  border: 1.5px solid var(--c-border);
-  border-radius: 16px;
-  padding: 28px 24px;
-  text-align: left;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-  transition: all 0.3s ease;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.action-card:hover {
-  border-color: var(--c-gold);
-  box-shadow: 0 12px 24px rgba(156, 120, 83, 0.12);
-  transform: translateY(-4px);
-}
-
-.icon-wrap {
-  width: 64px;
-  height: 64px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  transition: all 0.3s ease;
-}
-
-.action-card .title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--c-primary);
-  margin-bottom: 8px;
-  font-family: 'Noto Serif Thai', serif;
-}
-
-.action-card .desc {
-  font-size: 13px;
-  color: var(--c-text-muted);
-  line-height: 1.5;
-}
-
-.draft-item {
-  background: #ffffff;
-  border: 1px solid var(--c-border);
-  border-radius: 12px;
-  padding: 16px 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-}
-
-.draft-item:hover {
-  border-color: var(--c-gold-light);
-  box-shadow: 0 6px 16px rgba(156, 120, 83, 0.08);
-  transform: translateY(-2px);
-}
-
-/* 🌟 สไตล์การ์ดสำหรับไฟล์ PDF อ้างอิง */
-.file-card {
-  background: #ffffff;
-  border: 1px solid var(--c-border);
-  border-radius: 10px;
-  padding: 14px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-.file-card:hover {
-  border-color: var(--c-gold);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* สไตล์คงเดิมครับ ไม่เปลี่ยนแปลง */
+.dashboard-shell { font-family: 'Sarabun', sans-serif; animation: fadeIn 0.4s ease-out; }
+.main-logo { width: 80px; height: 80px; border: 3.5px solid var(--c-primary); background: rgba(61, 61, 61, 0.06); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-family: 'Noto Serif Thai', serif; font-weight: 700; font-size: 42px; color: var(--c-primary); }
+.action-card { background: var(--c-bg-card); border: 1.5px solid var(--c-border); border-radius: 16px; padding: 28px 24px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: all 0.3s ease; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; }
+.action-card:hover { border-color: var(--c-gold); box-shadow: 0 12px 24px rgba(156, 120, 83, 0.12); transform: translateY(-4px); }
+.icon-wrap { width: 64px; height: 64px; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; transition: all 0.3s ease; }
+.action-card .title { font-size: 20px; font-weight: 700; color: var(--c-primary); margin-bottom: 8px; font-family: 'Noto Serif Thai', serif; }
+.action-card .desc { font-size: 13px; color: var(--c-text-muted); line-height: 1.5; }
+.draft-item { background: #ffffff; border: 1px solid var(--c-border); border-radius: 12px; padding: 16px 20px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+.draft-item:hover { border-color: var(--c-gold-light); box-shadow: 0 6px 16px rgba(156, 120, 83, 0.08); transform: translateY(-2px); }
+.file-card { background: #ffffff; border: 1px solid var(--c-border); border-radius: 10px; padding: 14px; transition: all 0.2s ease; cursor: pointer; }
+.file-card:hover { border-color: var(--c-gold); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>

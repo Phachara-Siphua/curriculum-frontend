@@ -9,13 +9,14 @@ const router = useRouter()
 const { isFocused, currentIndex, currentStep, isVisible, focusAnchor, next: nextStep, prev: prevStep, showAll, steps } = useFocusMode(getSteps('1'))
 
 const config = useRuntimeConfig()
-const API_BASE = config.public.apiBase as string
+// 🌟 กำหนดค่า API_BASE ชี้ไปที่ Backend (ถ้าไม่มีตั้งค่าไว้ให้ใช้ค่าเริ่มต้น)
+const API_BASE = (config.public.apiBase as string) || 'http://localhost:8000'
 
 // ================= State ข้อมูลฟอร์มหน้า 1 =================
 const form = ref({
   id: null as string | number | null, 
   
-  // 🌟 เพิ่มฟิลด์ข้อมูลสถาบัน
+  // 🌟 ฟิลด์ข้อมูลสถาบัน
   university: 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าพระนครเหนือ',
   campus: 'วิทยาลัยเทคโนโลยีอุตสาหกรรม ภาควิชาเทคโนโลยีวิศวกรรมอิเล็กทรอนิกส์',
 
@@ -57,11 +58,16 @@ const loadError = ref('')
 async function loadProgram(id: string | number) {
   isLoading.value = true
   loadError.value = ''
-  form.value.id = id
   try {
     const data: any = await $fetch(`${API_BASE}/programs/${id}`)
 
-    form.value.id = data.id
+    // 🌟 ถ้ากำลัง "สร้างหลักสูตรใหม่ (Clone)" ให้เคลียร์ ID ทิ้ง เพื่อบังคับให้เป็นการสร้างใหม่
+    if (route.query.type === 'revise' || route.query.type === 'new') {
+      form.value.id = null
+    } else {
+      form.value.id = data.id || data.program_id
+    }
+
     form.value.university = data.university ?? 'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าพระนครเหนือ'
     form.value.campus = data.campus ?? 'วิทยาลัยเทคโนโลยีอุตสาหกรรม ภาควิชาเทคโนโลยีวิศวกรรมอิเล็กทรอนิกส์'
     
@@ -115,14 +121,13 @@ async function loadProgram(id: string | number) {
       : [{ name: '', position: '', degree: '', branch: '' }]
   } catch (err: any) {
     console.error('Failed to load program', err)
-
+    
+    // ถ้าไม่เจอหลักสูตร (404) แปลว่าเป็นหลักสูตรใหม่จริงๆ (สร้างจากหน้าแรก) 
+    // หรือ API ยังไม่มีข้อมูล ให้ปล่อยฟอร์มว่างไว้
+    form.value.id = null
     const status = err?.response?.status ?? err?.statusCode
-    if (status === 404) {
-      form.value.id = null
-      router.replace({ path: route.path, query: {} })
-      loadError.value = 'ไม่พบข้อมูลหลักสูตรนี้ในระบบแล้ว เริ่มกรอกข้อมูลใหม่ได้เลย'
-    } else {
-      loadError.value = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่'
+    if (status !== 404) {
+      loadError.value = 'ไม่สามารถดึงข้อมูลจากเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง'
     }
   } finally {
     isLoading.value = false
@@ -130,8 +135,11 @@ async function loadProgram(id: string | number) {
 }
 
 onMounted(() => {
-  if (route.query.id) {
-    loadProgram(route.query.id as string)
+  // ถ้าระบุว่าให้สร้างหลักสูตรปรับปรุง (ดึงข้อมูลเก่ามา) หรือเป็นการเข้าดูฉบับร่างเดิม (มี id)
+  const targetId = route.query.ref || route.query.id
+  // ตรวจสอบว่า targetId เป็น ID จริงๆ ที่มีเฉพาะตัวเลข ไม่ใช่พวก mock id (new_12345)
+  if (targetId && !String(targetId).startsWith('new_') && !String(targetId).startsWith('rev_')) {
+    loadProgram(targetId as string)
   }
 })
 
@@ -149,9 +157,11 @@ const addInstructor = () => form.value.instructors.push({ name: '', position: ''
 const removeInstructor = (i: number) => { form.value.instructors.splice(i, 1); if(form.value.instructors.length === 0) form.value.instructors.push({ name: '', position: '', degree: '', branch: '' }) }
 
 // ================= Build the /programs payload =================
+// ================= Build the /programs payload =================
 function buildProgramPayload() {
   return {
-    university: form.value.university || null,
+    // 🌟 เปลี่ยนจาก university: เป็น university_name:
+    university_name: form.value.university || null, 
     campus: form.value.campus || null,
     program_code: form.value.programCode || null,
     name_th: form.value.nameTh || null,
@@ -180,12 +190,21 @@ function buildProgramPayload() {
 }
 
 async function replaceChildren(programId: string | number, resource: string, items: any[]) {
-  const existing: any[] = await $fetch(`${API_BASE}/programs/${programId}/${resource}/`)
-  await Promise.all(
-    existing.map(e => $fetch(`${API_BASE}/programs/${programId}/${resource}/${e.id}`, { method: 'DELETE' }))
-  )
+  // ป้องกันการส่งคำขอไปลบถ้าเป็นหลักสูตรที่เพิ่งสร้างใหม่เอี่ยม (จะยังไม่มีข้อมูลลูกให้ลบ)
+  try {
+    const existing: any[] = await $fetch(`${API_BASE}/programs/${programId}/${resource}`)
+    if (existing && existing.length > 0) {
+      await Promise.all(
+        existing.map(e => $fetch(`${API_BASE}/programs/${programId}/${resource}/${e.id || e[`${resource.slice(0, -1)}_id`]}`, { method: 'DELETE' }))
+      )
+    }
+  } catch (err) {
+    console.warn(`Could not delete existing ${resource}, maybe there are none.`)
+  }
+
+  // ส่งข้อมูลใหม่ไปเพิ่ม
   for (const item of items) {
-    await $fetch(`${API_BASE}/programs/${programId}/${resource}/`, { method: 'POST', body: item })
+    await $fetch(`${API_BASE}/programs/${programId}/${resource}`, { method: 'POST', body: item })
   }
 }
 
@@ -225,9 +244,12 @@ async function saveChildren(programId: string | number) {
 
 async function saveProgram(): Promise<any> {
   const payload = buildProgramPayload()
+  
+  // ถ้ามี ID อยู่แล้ว (กำลังแก้ไขร่างเดิม) ให้ยิง PUT
   if (form.value.id) {
     return await $fetch(`${API_BASE}/programs/${form.value.id}`, { method: 'PUT', body: payload })
   }
+  // 🌟 แก้ไขบรรทัดนี้ เติมเครื่องหมายทับ (/) ต่อท้าย programs
   return await $fetch(`${API_BASE}/programs/`, { method: 'POST', body: payload })
 }
 
@@ -235,21 +257,28 @@ async function saveProgram(): Promise<any> {
 const isSavingDraft = ref(false)
 const isSavingNext = ref(false)
 const saveError = ref('')
+const saveSuccess = ref('')
 
 const saveDraft = async () => {
   isSavingDraft.value = true
   saveError.value = ''
+  saveSuccess.value = ''
   try {
     const saved = await saveProgram()
-    form.value.id = saved.id
-    await saveChildren(saved.id)
+    form.value.id = saved.id || saved.program_id // รอรับ ID ใหม่ที่ Database สร้างให้
+    await saveChildren(form.value.id!)
 
-    if (route.query.id !== String(saved.id)) {
-      router.replace({ path: route.path, query: { id: saved.id } })
+    saveSuccess.value = 'บันทึกข้อมูลฉบับร่างเรียบร้อยแล้ว'
+    
+    // เปลี่ยน URL ดึง ID จริงมาใช้แทน Mock ID
+    if (route.query.id !== String(form.value.id)) {
+      router.replace({ path: route.path, query: { id: form.value.id } })
     }
-  } catch (err) {
+    
+    setTimeout(() => { saveSuccess.value = '' }, 3000)
+  } catch (err: any) {
     console.error('Save draft failed', err)
-    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSavingDraft.value = false
   }
@@ -260,12 +289,14 @@ const saveAndNext = async () => {
   saveError.value = ''
   try {
     const saved = await saveProgram()
-    form.value.id = saved.id
-    await saveChildren(saved.id)
-    router.push({ path: '/number2', query: { id: form.value.id } })
-  } catch (err) {
+    form.value.id = saved.id || saved.program_id // 🌟 ได้รับ ID มาสดๆ ร้อนๆ
+    await saveChildren(form.value.id!)
+    
+    // 🌟 พาไปหน้า 2 พร้อมแนบ ID ที่เพิ่งได้มา
+    router.push({ path: '/number2', query: { id: form.value.id } }) 
+  } catch (err: any) {
     console.error('Save and next failed', err)
-    saveError.value = 'บันทึกไม่สำเร็จ กรุณาลองใหม่'
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง'
   } finally {
     isSavingNext.value = false
   }
@@ -295,8 +326,18 @@ onMounted(() => {
 
 <template>
   <div class="page-shell">
-    <form @submit.prevent class="w-full">
+    <form @submit.prevent class="w-full relative">
       
+      <!-- 🌟 แจ้งเตือนสถานะเมื่อโหลดหรือ Error -->
+      <div v-if="isLoading" class="absolute top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 rounded-lg shadow-sm border border-gray-100">
+        <div class="flex items-center gap-2 text-[var(--c-gold)] font-bold">
+          <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" /> กำลังดึงข้อมูลหลักสูตร...
+        </div>
+      </div>
+      <div v-if="loadError" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm font-medium flex items-center gap-2">
+        <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5" /> {{ loadError }}
+      </div>
+
       <!-- Breadcrumb & Title -->
       <div class="crumb">
         <span>เล่มหลักสูตร</span> › <b>หมวดที่ 1</b>
@@ -311,9 +352,7 @@ onMounted(() => {
       <div v-if="!isFocused" class="toc-card">
         <div class="toc-label">หัวข้อในหน้านี้ — คลิกเพื่อเลือกกรอกทีละหัวข้อ</div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-[4px_18px]">
-          <!-- 🌟 เพิ่มสารบัญข้อมูลสถาบันตรงนี้ -->
           <div class="toc-item" :class="{ 'filled': doneState.s1_0 }" @click="focusAnchor('sec-1-0')"><div class="toc-dot"></div><span class="toc-num"></span><span class="lbl">ข้อมูลสถาบันอุดมศึกษา</span></div>
-          
           <div class="toc-item" :class="{ 'filled': doneState.s1_1 }" @click="focusAnchor('sec-1-1')"><div class="toc-dot"></div><span class="toc-num">1.1-1.5</span><span class="lbl">รหัสและรูปแบบของหลักสูตร</span></div>
           <div class="toc-item" :class="{ 'filled': doneState.s1_6 }" @click="focusAnchor('sec-1-6')"><div class="toc-dot"></div><span class="toc-num">1.6</span><span class="lbl">สถานภาพของหลักสูตรและการพิจารณา...</span></div>
           <div class="toc-item" :class="{ 'filled': doneState.s1_7 }" @click="focusAnchor('sec-1-7')"><div class="toc-dot"></div><span class="toc-num">1.7-1.8</span><span class="lbl">ความพร้อมและอาชีพที่ประกอบได้</span></div>
@@ -328,7 +367,7 @@ onMounted(() => {
       <!-- Main Paper Card -->
       <div class="paper-card">
 
-        <!-- ================= ข้อมูลสถาบันอุดมศึกษา (ใหม่) ================= -->
+        <!-- ================= ข้อมูลสถาบันอุดมศึกษา ================= -->
         <section class="topic-sec" id="sec-1-0" v-show="isVisible('sec-1-0')">
           <div class="sec-head">
             <div class="sec-number text-[#A8793B] text-[20px]">§</div>
@@ -352,7 +391,6 @@ onMounted(() => {
         </section>
         
         <!-- ================= กลุ่มที่ 1 (1.1 - 1.5) ================= -->
-        <!-- 1.1 รหัสและชื่อหลักสูตร -->
         <section class="topic-sec" id="sec-1-1" v-show="isVisible('sec-1-1')">
           <div class="sec-head">
             <div class="sec-number">1.1</div><h2 class="sec-title">รหัสและชื่อหลักสูตร</h2>
@@ -444,7 +482,6 @@ onMounted(() => {
         </section>
 
         <!-- ================= กลุ่มที่ 2 (1.6) ================= -->
-        <!-- 1.6 สถานภาพของหลักสูตรและการพิจารณาอนุมัติ -->
         <section class="topic-sec" id="sec-1-6" v-show="isVisible('sec-1-6')">
           <div class="sec-head">
             <div class="sec-number">1.6</div><h2 class="sec-title">สถานภาพของหลักสูตรและการพิจารณาอนุมัติ/เห็นชอบ</h2>
@@ -467,7 +504,6 @@ onMounted(() => {
         </section>
 
         <!-- ================= กลุ่มที่ 3 (1.7 - 1.8) ================= -->
-        <!-- 1.7 ความพร้อมในการเผยแพร่ -->
         <section class="topic-sec" id="sec-1-7" v-show="isVisible('sec-1-7')">
           <div class="sec-head">
             <div class="sec-number">1.7</div><h2 class="sec-title">ความพร้อมในการเผยแพร่หลักสูตรที่มีคุณภาพและมาตรฐาน</h2>
@@ -478,7 +514,6 @@ onMounted(() => {
           </div>
         </section>
 
-        <!-- 1.8 อาชีพที่สามารถประกอบได้ -->
         <section class="topic-sec" id="sec-1-8" v-show="isVisible('sec-1-8')">
           <div class="sec-head">
             <div class="sec-number">1.8</div><h2 class="sec-title">อาชีพที่สามารถประกอบได้หลังสำเร็จการศึกษา</h2>
@@ -497,7 +532,6 @@ onMounted(() => {
         </section>
 
         <!-- ================= กลุ่มที่ 4 (1.9) ================= -->
-        <!-- 1.9 อาจารย์ผู้รับผิดชอบหลักสูตร -->
         <section class="topic-sec" id="sec-1-9" v-show="isVisible('sec-1-9')">
           <div class="sec-head">
             <div class="sec-number">1.9</div><h2 class="sec-title">ชื่อ-นามสกุล ตำแหน่ง และคุณวุฒิการศึกษาของอาจารย์ผู้รับผิดชอบหลักสูตร</h2>
@@ -521,7 +555,6 @@ onMounted(() => {
         </section>
 
         <!-- ================= กลุ่มที่ 5 (1.10 - 1.13) ================= -->
-        <!-- 1.10 สถานที่จัดการเรียนการสอน -->
         <section class="topic-sec" id="sec-1-10" v-show="isVisible('sec-1-10')">
           <div class="sec-head">
             <div class="sec-number">1.10</div><h2 class="sec-title">สถานที่จัดการเรียนการสอน</h2>
@@ -532,7 +565,6 @@ onMounted(() => {
           </div>
         </section>
 
-        <!-- 1.11 สถานการณ์ภายนอก -->
         <section class="topic-sec" id="sec-1-11" v-show="isVisible('sec-1-11')">
           <div class="sec-head">
             <div class="sec-number">1.11</div><h2 class="sec-title">สถานการณ์ภายนอกหรือการพัฒนาที่จำเป็นต้องนำมาพิจารณาในการวางแผนหลักสูตร</h2>
@@ -546,7 +578,6 @@ onMounted(() => {
           </div>
         </section>
 
-        <!-- 1.12 ผลกระทบจากข้อ 11.1 และ 11.2 -->
         <section class="topic-sec" id="sec-1-12" v-show="isVisible('sec-1-12')">
           <div class="sec-head">
             <div class="sec-number">1.12</div><h2 class="sec-title">ผลกระทบจากข้อ 11.1 และ 11.2 ต่อการพัฒนาหลักสูตรและความเกี่ยวข้องกับพันธกิจของมหาวิทยาลัย</h2>
@@ -560,7 +591,6 @@ onMounted(() => {
           </div>
         </section>
 
-        <!-- 1.13 ความสัมพันธ์กับหลักสูตรอื่น -->
         <section class="topic-sec" id="sec-1-13" v-show="isVisible('sec-1-13')">
           <div class="sec-head">
             <div class="sec-number">1.13</div><h2 class="sec-title">ความสัมพันธ์กับหลักสูตรอื่นที่เปิดสอนในคณะ/ภาควิชาอื่นของมหาวิทยาลัย</h2>
@@ -581,16 +611,18 @@ onMounted(() => {
       <FocusFooter :is-focused="isFocused" :current-index="currentIndex" :steps="steps" @prev="prevStep" @next="nextStep" />
 
       <!-- Action Footer -->
-      <div v-if="saveError" style="color:#9C4132; font-size:12.8px; margin-bottom:8px;">{{ saveError }}</div>
+      <div v-if="saveError" style="color:#9C4132; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveError }}</div>
+      <div v-if="saveSuccess" style="color:#2E7D32; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveSuccess }}</div>
+      
       <div class="page-footer">
-        <button type="button" class="nav-btn" disabled>
+        <button type="button" @click="router.push('/')" class="nav-btn">
           ← <span>หน้าแรกสุด</span>
         </button>
         <div class="flex flex-col md:flex-row gap-3">
-          <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
+          <button type="button" @click="saveDraft()" :disabled="isSavingDraft || isSavingNext" class="nav-btn">
             <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
           </button>
-          <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <button type="button" @click="saveAndNext()" :disabled="isSavingNext || isSavingDraft" class="btn-brass" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
             <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'ข้อมูลเฉพาะของหลักสูตร' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
           </button>
         </div>
@@ -599,4 +631,3 @@ onMounted(() => {
     </form>
   </div>
 </template>
-

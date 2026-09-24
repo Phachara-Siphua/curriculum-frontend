@@ -1,9 +1,21 @@
 <!-- components/Sidebar.vue -->
 <script setup lang="ts">
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { TOC, TOTAL_SUBS, getSteps } from '~/constants/toc'
+import { useRoute, useRouter } from '#app'
 
 const route = useRoute()
 const router = useRouter()
+
+// 🌟 1. ล็อก ID ไว้ในหน่วยความจำ ไม่ให้หายเด็ดขาด
+const lockedProgramId = ref('')
+
+// คอยจับตาดู URL ถ้ามี id โผล่มา ให้จำไว้ทันที
+watch(() => route.query.id, (newId) => {
+  if (newId && typeof newId === 'string' && !newId.startsWith('new_')) {
+    lockedProgramId.value = newId
+  }
+}, { immediate: true })
 
 /** กลุ่มที่กางอยู่ */
 const openKeys = ref<Set<string>>(new Set())
@@ -21,13 +33,14 @@ function toggleGroup(key: string, to: string) {
     openKeys.value.delete(key)
   } else {
     openKeys.value.add(key)
-    if (route.path !== to) router.push(to)
+    if (route.path !== to) {
+      // 🌟 2. แนบ id ที่ล็อกไว้ไปด้วยเสมอ
+      router.push({ path: to, query: { id: lockedProgramId.value } })
+    }
   }
-  // trigger reactivity ของ Set
   openKeys.value = new Set(openKeys.value)
 }
 
-/** เลื่อนไปยัง section ในหน้าปัจจุบัน (ใช้ตอนคลิกแล้วอยู่หน้าเดิมอยู่แล้ว) */
 function scrollToAnchor(anchor: string) {
   const el = document.getElementById(anchor)
   if (!el) return
@@ -36,11 +49,9 @@ function scrollToAnchor(anchor: string) {
   setTimeout(() => el.classList.remove('pulse-bg'), 1200)
 }
 
-/**
- * คลิก step ในเมนู: ไปหน้าที่ถูกต้อง แล้วตั้ง hash เป็น anchor แรกของ step นั้น
- */
 async function goToStep(to: string, anchor: string) {
-  const target = { path: to, hash: '#' + anchor }
+  // 🌟 3. แนบ id ไปทุกครั้งที่คลิกหัวข้อย่อย
+  const target = { path: to, query: { id: lockedProgramId.value }, hash: '#' + anchor }
 
   if (route.path !== to) {
     await router.push(target)
@@ -111,7 +122,6 @@ const groupDone = (key: string) => {
           <div class="chev"></div>
         </div>
 
-        <!-- 🌟 แสดงรายการหัวข้อย่อย (ที่คำนวณจาก stepSizes แล้ว) -->
         <div class="sub-list" :style="{ maxHeight: isOpen(g.key) ? (getSteps(g.key).length * 40 + 60) + 'px' : '0px' }">
           <div
             v-for="step in getSteps(g.key)"
@@ -121,12 +131,12 @@ const groupDone = (key: string) => {
             @click.stop="goToStep(g.to, step.anchors[0])"
           >
             <div class="sub-dot"></div>
-            <!-- ถ้าไม่มี numRange ให้เว้นที่ว่างไว้ -->
             <span class="sub-num">{{ step.numRange ? step.numRange : ' ' }}</span>
             <span class="lbl">{{ step.label }}</span>
           </div>
 
-          <NuxtLink :to="g.to" class="sub-item overview-link" @click.stop>
+          <!-- 🌟 4. ผูกลิงก์ภาพรวมเข้ากับ ID ที่ล็อกไว้ -->
+          <NuxtLink :to="{ path: g.to, query: { id: lockedProgramId } }" class="sub-item overview-link" @click.stop>
             <div class="sub-dot" style="background: transparent"></div>
             <span class="sub-num"> </span>
             <span class="lbl">☰ ดูภาพรวมทั้งหมดของหมวดนี้</span>
@@ -144,7 +154,7 @@ const groupDone = (key: string) => {
 ========================================== */
 .sidebar {
   width: 320px; flex: none; 
-  background: #2D2D2D; /* สีเทาชาร์โคล */
+  background: #2D2D2D; 
   color: #DCD7C9; 
   overflow-y: auto; padding: 14px 0 30px; 
   border-right: 1px solid rgba(255,255,255,.05);

@@ -5,8 +5,10 @@ import { getSteps } from '~/constants/toc'
 const route = useRoute()
 const router = useRouter()
 
-// ===== Focus mode =====
 const { isFocused, currentIndex, currentStep, isVisible, focusAnchor, next: nextStep, prev: prevStep, showAll, steps } = useFocusMode(getSteps('3'))
+
+const config = useRuntimeConfig()
+const API_BASE = (config.public.apiBase as string) || 'http://localhost:8000'
 
 const programId = ref<string | null>(null)
 
@@ -42,6 +44,148 @@ const form = ref<any>({
   s3_32: [{ name: '', position: '', degree: '', research: '', loadNow: '', loadNew: '' }]
 })
 
+// ================= Load Data =================
+const isLoading = ref(false)
+const loadError = ref('')
+
+async function loadData() {
+  if (!programId.value) {
+    alert('ไม่พบรหัสหลักสูตร กรุณาเริ่มจากหน้าแรก')
+    router.push('/')
+    return
+  }
+
+  isLoading.value = true
+  try {
+    try {
+      const topics: any = await $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/`)
+      if (topics && topics.length > 0) {
+        topics.forEach((t: any) => {
+          // 🌟 1. ดักไว้ก่อนเลยว่า ถ้าไม่ใช่หมวด 3 ให้ข้ามไปเลย! ป้องกันการดึง 4.12 มาใส่
+          if (!t.topic_no || !t.topic_no.startsWith('3.')) return;
+
+          const idx = parseInt(t.topic_no.split('.')[1]) - 1
+          if (idx >= 0 && idx < 43) {
+            if (t.content && t.content.startsWith('[')) {
+              try {
+                const parsed = JSON.parse(t.content)
+                if (idx === 3) {
+                  form.value.s3_4 = parsed[0] || { sem1: '', sem2: '', summer: '' }
+                } else if ([4, 5, 6, 33, 34, 35].includes(idx)) {
+                  form.value[`s3_${idx+1}`] = parsed
+                } else if ([7, 8, 9, 12, 26, 27, 28, 29, 30, 31].includes(idx)) {
+                  form.value[`s3_${idx+1}`] = parsed
+                } else if (idx >= 13 && idx <= 24) {
+                  form.value.subjects[idx - 13] = parsed
+                }
+              } catch (e) {
+                form.value.sections[idx] = t.content
+              }
+            } else {
+              form.value.sections[idx] = t.content || ''
+            }
+          }
+        })
+      }
+    } catch (err: any) {
+      if (err?.response?.status !== 404) console.error('Failed to load learning topics', err)
+    }
+
+  } catch (err) {
+    console.error('Error in loadData', err)
+    loadError.value = 'โหลดข้อมูลไม่สำเร็จ'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// ================= Save Data =================
+const isSavingDraft = ref(false)
+const isSavingNext = ref(false)
+const saveError = ref('')
+const saveSuccess = ref('')
+
+async function replaceLearningTopics() {
+  const topicsPayload: any[] = []
+  
+  for (let i = 0; i < 43; i++) {
+    const topicNo = `3.${i + 1}`
+    let content = ''
+
+    if (i === 3) {
+      content = JSON.stringify([form.value.s3_4])
+    } else if ([4, 5, 6, 33, 34, 35].includes(i)) {
+      content = JSON.stringify(form.value[`s3_${i+1}`].filter((v: string) => v.trim()))
+    } else if ([7, 8, 9, 12, 26, 27, 28, 29, 30, 31].includes(i)) {
+      content = JSON.stringify(form.value[`s3_${i+1}`])
+    } else if (i >= 13 && i <= 24) {
+      content = JSON.stringify(form.value.subjects[i - 13])
+    } else {
+      content = form.value.sections[i]
+    }
+
+    if (content.trim() && content !== '[]') {
+      topicsPayload.push({
+        topic_no: topicNo,
+        title: sectionTitles[i],
+        content: content,
+        sort_order: i
+      })
+    }
+  }
+
+  try {
+    const existing: any[] = await $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/`)
+    if (existing && existing.length > 0) {
+      // 🌟 จุดที่ต้องแก้: กรอง (filter) ลบเฉพาะข้อที่ขึ้นต้นด้วย "3." เพื่อไม่ให้กระทบ 4.12
+      const topicsToDelete = existing.filter((e: any) => e.topic_no && e.topic_no.startsWith('3.'))
+      
+      await Promise.all(
+        topicsToDelete.map((e: any) => $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/${e.id}`, { method: 'DELETE' }))
+      )
+    }
+  } catch (e) {}
+
+  for (const item of topicsPayload) {
+    await $fetch(`${API_BASE}/programs/${programId.value}/learning-topics/`, { method: 'POST', body: item })
+  }
+}
+
+const saveAll = async () => {
+  if (!programId.value) return
+  await replaceLearningTopics()
+}
+
+const saveDraft = async () => { 
+  isSavingDraft.value = true
+  saveError.value = ''
+  saveSuccess.value = ''
+  try {
+    await saveAll()
+    saveSuccess.value = 'บันทึกข้อมูลหมวด 3 เรียบร้อยแล้ว'
+    setTimeout(() => { saveSuccess.value = '' }, 3000)
+  } catch (err: any) {
+    console.error('Save failed', err)
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล'
+  } finally {
+    isSavingDraft.value = false 
+  }
+}
+
+const saveAndNext = async () => { 
+  isSavingNext.value = true
+  saveError.value = ''
+  try {
+    await saveAll()
+    router.push({ path: '/number4', query: { id: programId.value } })
+  } catch (err: any) {
+    console.error('Save failed', err)
+    saveError.value = err?.data?.detail || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล'
+  } finally {
+    isSavingNext.value = false 
+  }
+}
+
 // ================= AI Integration =================
 const handleAIGenerate = (section: string, payload?: any) => {
   console.log('Trigger AI Generation for:', section, payload)
@@ -52,8 +196,8 @@ const handleAIGenerate = (section: string, payload?: any) => {
 const addList = (key: string) => { form.value[key].push('') }
 const removeList = (key: string, idx: number) => { form.value[key].splice(idx, 1); if (form.value[key].length === 0) form.value[key].push('') }
 
-const addTable = (key: string, emptyObj: any) => { form.value[key].push(emptyObj) }
-const removeTable = (key: string, idx: number, emptyObj: any) => { form.value[key].splice(idx,1); if(form.value[key].length === 0) form.value[key].push(emptyObj) }
+const addTable = (key: string, emptyObj: any) => { form.value[key].push({...emptyObj}) }
+const removeTable = (key: string, idx: number, emptyObj: any) => { form.value[key].splice(idx,1); if(form.value[key].length === 0) form.value[key].push({...emptyObj}) }
 
 const addSubject = (idx: number) => { form.value.subjects[idx].push({ code: '', credit: '', nameTh: '', nameEn: '', note: '' }) }
 const removeSubject = (idx: number, itemIdx: number) => { form.value.subjects[idx].splice(itemIdx, 1); if(form.value.subjects[idx].length === 0) form.value.subjects[idx].push({ code: '', credit: '', nameTh: '', nameEn: '', note: '' }) }
@@ -75,22 +219,28 @@ const toggleDone = (index: number) => {
 }
 
 onMounted(() => { 
-  if (route.query.id) { programId.value = route.query.id as string; form.value.id = route.query.id as string }
+  if (route.query.id) { 
+    programId.value = route.query.id as string
+    form.value.id = route.query.id as string
+    loadData()
+  } 
   if (!import.meta.client) return
   ;(Object.keys(sectionTitles) as unknown as number[]).forEach((i) => {
     doneState.value[i] = localStorage.getItem(`done-${keyToAnchor(i)}`) === '1'
   })
 })
-
-const isSavingDraft = ref(false); const isSavingNext = ref(false)
-const saveDraft = async () => { isSavingDraft.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingDraft.value = false; }
-const saveAndNext = async () => { isSavingNext.value = true; await new Promise(r => setTimeout(r, 1000)); isSavingNext.value = false; router.push({ path: '/number4', query: { id: programId.value } }) }
 </script>
 
 <template>
   <div class="page-shell">
-    <form @submit.prevent class="w-full">
+    <form @submit.prevent class="w-full relative">
       
+      <div v-if="isLoading" class="absolute top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 rounded-lg shadow-sm border border-gray-100">
+        <div class="flex items-center gap-2 text-[var(--c-gold)] font-bold">
+          <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin" /> กำลังดึงข้อมูล...
+        </div>
+      </div>
+
       <!-- Breadcrumb & Title -->
       <div class="crumb">
         <span>เล่มหลักสูตร</span> › <b class="text-[#1B2A4A] font-semibold">หมวดที่ 3</b>
@@ -305,15 +455,18 @@ const saveAndNext = async () => { isSavingNext.value = true; await new Promise(r
       <FocusFooter :is-focused="isFocused" :current-index="currentIndex" :steps="steps" @prev="prevStep" @next="nextStep" />
 
       <!-- Action Footer -->
+      <div v-if="saveError" style="color:#9C4132; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveError }}</div>
+      <div v-if="saveSuccess" style="color:#2E7D32; font-size:12.8px; margin-bottom:8px; text-align: right;">{{ saveSuccess }}</div>
+
       <div class="page-footer">
         <button type="button" @click="router.push(`/number2?id=${programId || ''}`)" class="nav-btn">
           ← <span>ข้อมูลเฉพาะของหลักสูตร</span>
         </button>
         <div class="flex flex-col md:flex-row gap-3">
-          <button type="button" @click="saveDraft()" :disabled="isSavingDraft" class="nav-btn">
+          <button type="button" @click="saveDraft()" :disabled="isSavingDraft || isSavingNext" class="nav-btn">
             <UIcon name="i-heroicons-document-text" class="w-4 h-4 mr-1" /> {{ isSavingDraft ? 'กำลังบันทึก...' : 'บันทึกฉบับร่าง' }}
           </button>
-          <button type="button" @click="saveAndNext()" :disabled="isSavingNext" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <button type="button" @click="saveAndNext()" :disabled="isSavingNext || isSavingDraft" class="btn-brass force-white-btn" style="border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer;">
             <span style="color:#ffffff !important;">{{ isSavingNext ? 'กำลังบันทึก...' : 'ผลการเรียนรู้ กลยุทธ์การสอน' }}</span> <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-white" />
           </button>
         </div>
@@ -322,4 +475,3 @@ const saveAndNext = async () => { isSavingNext.value = true; await new Promise(r
     </form>
   </div>
 </template>
-
