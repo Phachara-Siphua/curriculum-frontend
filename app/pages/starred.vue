@@ -1,21 +1,53 @@
 <!-- pages/starred.vue -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+
+const API_BASE = useApiBase()
+const demoUser = useDemoUser()
+const { toggleFavorite, isFavoritePending } = useProgramFavorites()
 
 const searchQuery = ref('')
-const curriculums = useCurriculums() // 🌟 ดึงจาก State กลาง
+const curriculums = ref<any[]>([])
+const isLoading = ref(false)
+
+const fetchPrograms = async () => {
+  isLoading.value = true
+  try {
+    // ใช้ query ที่ backend มีอยู่แล้ว — ไม่ต้องเพิ่ม API
+    const data = await $fetch<any[]>(`${API_BASE}/programs/`, {
+      query: { user_id: demoUser.value.id, starred_only: true }
+    })
+    curriculums.value = data.map(p => ({
+      id: p.id,
+      name: p.name_th || p.name_en || 'หลักสูตรที่ยังไม่ตั้งชื่อ',
+      progress: p.progress,
+      star: !!p.is_starred,
+      upd: p.updated_at
+        ? new Date(p.updated_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'ไม่ทราบ',
+      type: p.curriculum_type === 'revision' ? 'rev' : 'new'
+    }))
+  } catch (err) {
+    console.error('Failed to load starred programs:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const starredList = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  // กรองเฉพาะอันที่ star = true
   return curriculums.value.filter(c => c.star && c.name.toLowerCase().includes(q))
 })
 
-const toggleStar = (id: number) => {
-  const target = curriculums.value.find(c => c.id === id)
-  if (target) target.star = !target.star
+const toggleStar = async (program: any) => {
+  await toggleFavorite(program)
 }
+
+onMounted(() => {
+  fetchPrograms()
+})
 </script>
+
 
 <template>
   <div>
@@ -46,7 +78,13 @@ const toggleStar = (id: number) => {
             <div class="text-[#6f6961] text-[13px]" style="margin-top: 4px;">ความคืบหน้า {{ c.progress }}%</div>
           </div>
         </button>
-        <button class="star-btn on" @click.stop="toggleStar(c.id)">
+        <button
+          class="star-btn on"
+          :class="{ loading: isFavoritePending(c.id) }"
+          :disabled="isFavoritePending(c.id)"
+          aria-label="เอาดาวออก"
+          @click.stop="toggleStar(c)"
+        >
           <UIcon name="i-heroicons-star-solid" class="w-4 h-4" />
         </button>
       </div>
@@ -69,5 +107,8 @@ const toggleStar = (id: number) => {
 .cb b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 44px; line-height: 1.45; font-size: 14.5px; }
 .bar { height: 6px; border-radius: 3px; background: #ece6dc; overflow: hidden; margin-top: 8px; }
 .bar i { display: block; height: 100%; background: #9C7853; }
-.star-btn { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid #f59e0b; background: #FFFDFA; color: #f59e0b; display: flex; align-items: center; justify-content: center; z-index: 5; }
+.star-btn { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid #f59e0b; background: #FFFDFA; color: #f59e0b; display: flex; align-items: center; justify-content: center; z-index: 5; transition: 0.15s; }
+.star-btn:disabled { opacity: 0.6; cursor: wait; }
+.star-btn.loading :deep(svg) { animation: star-pulse 0.8s ease-in-out infinite; }
+@keyframes star-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.8); } }
 </style>

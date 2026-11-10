@@ -2,11 +2,34 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-const courses = ref([
-  { code: '080103001', nameTh: 'ภาษาอังกฤษ 1', nameEn: 'English I', credits: '3(3-0-6)', pre: [], co: [], by: 'User', descTh: 'ทักษะการฟัง การพูด การอ่าน และการเขียน การสื่อสารในงานและกิจวัตรประจำวันแบบง่าย', descEn: 'Listening, speaking, reading and writing skills; communicating in simple and routine tasks.' },
-  { code: '080103002', nameTh: 'ภาษาอังกฤษ 2', nameEn: 'English II', credits: '3(3-0-6)', pre: ['080103001'], co: [], by: 'User', descTh: 'ทักษะการฟัง การพูด การอ่าน และการเขียน การสื่อสาร และการแสดงความคิดเห็นในหัวข้อที่คุ้นเคย', descEn: 'Listening, speaking, reading and writing skills; communicating and giving opinions toward familiar topics.' },
-  { code: '030543301', nameTh: 'การออกแบบดิจิทัลและลอจิก', nameEn: 'Digital and Logic Design', credits: '3(2-2-5)', pre: [], co: [], by: 'User', descTh: 'หลักการและทฤษฎีเบื้องต้นของระบบดิจิทัล ระบบเลขฐานสอง พีชคณิตบูลีนและการลดรูป', descEn: 'Fundamental principles and theory of digital system; binary system; Boolean algebra.' }
-])
+const API_BASE = useApiBase()
+
+// 1. Live courses from MariaDB database
+const courses = ref<any[]>([])
+const isLoading = ref(false)
+
+// 2. ดึงข้อมูลรายวิชาทั้งหมดจากฐานข้อมูลจริง
+const fetchCourses = async () => {
+  isLoading.value = true
+  try {
+    const data = await $fetch<any[]>(`${API_BASE}/courses/`)
+    courses.value = (data || []).map(c => ({
+      code: c.id,
+      nameTh: c.name_th || '',
+      nameEn: c.name_en || '',
+      credits: c.credits || `${c.credit_total || 0}(${c.credit_lecture || 0}-${c.credit_lab || 0}-${c.credit_selfstudy || 0})`,
+      pre: c.prerequisites || [],
+      co: c.corequisites || [],
+      by: c.created_by ? `User ${c.created_by}` : 'User',
+      descTh: c.description_th || '',
+      descEn: c.description_en || ''
+    }))
+  } catch (err: any) {
+    console.error('Failed to load courses from DB:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const searchQuery = ref('')
 const filteredCourses = computed(() => {
@@ -19,7 +42,6 @@ const filteredCourses = computed(() => {
 const isModalOpen = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
 
-// 🛠 TO BACKEND: ตัวแปรฟอร์มรายวิชาที่ต้องส่งเข้า API
 const activeCourse = ref({
   code: '', nameTh: '', nameEn: '',
   cTotal: '', cLec: '', cLab: '', cSelf: '',
@@ -30,7 +52,8 @@ const activeCourse = ref({
 const openAddModal = () => {
   modalMode.value = 'add'
   activeCourse.value = { code: '', nameTh: '', nameEn: '', cTotal: '', cLec: '', cLab: '', cSelf: '', pre: [], co: [], descTh: '', descEn: '' }
-  showAIPreview.value = false // ปิดหน้าต่างพรีวิว AI
+  aiModalOpen.value = false
+  aiVersions.value = []
   isModalOpen.value = true
 }
 
@@ -45,11 +68,12 @@ const openEditModal = (c: any) => {
     cTotal, cLec, cLab, cSelf, pre: [...c.pre], co: [...c.co],
     descTh: c.descTh, descEn: c.descEn
   }
-  showAIPreview.value = false // ปิดหน้าต่างพรีวิว AI
+  aiModalOpen.value = false
+  aiVersions.value = []
   isModalOpen.value = true
 }
 
-// === ระบบ Tag Input และ Click Outside ===
+// === Tag Input: Pre / Co Dropdown ===
 const searchPre = ref('')
 const searchCo = ref('')
 const preDropdown = ref(false)
@@ -76,45 +100,122 @@ const closeDropdowns = (e: Event) => {
   if (!target.closest('.co-box')) coDropdown.value = false
 }
 
-onMounted(() => { document.addEventListener('click', closeDropdowns) })
+onMounted(() => {
+  fetchCourses()
+  document.addEventListener('click', closeDropdowns)
+})
 onUnmounted(() => { document.removeEventListener('click', closeDropdowns) })
 
-// === 🌟 ระบบ AI Preview (ร่างคำอธิบายและตรวจสอบ/แก้ไขก่อนใช้) ===
+// === 🌟 ยิง API ไปหา AI จริง (Ollama Gemma 3) ===
 const isGenerating = ref(false)
-const showAIPreview = ref(false)
+const aiModalOpen = ref(false)
+const aiVersions = ref<any[]>([])
 const aiDraftTh = ref('')
 const aiDraftEn = ref('')
+let aiSession = 0
+let aiController: AbortController | null = null
+
+const openAiDescModal = () => {
+  if (!activeCourse.value.nameTh && !activeCourse.value.nameEn) {
+    alert('กรุณากรอกชื่อวิชาภาษาไทยหรืออังกฤษก่อน เพื่อให้ AI นำไปร่างคำอธิบายได้')
+    return
+  }
+  aiSession += 1
+  aiDraftTh.value = activeCourse.value.descTh
+  aiDraftEn.value = activeCourse.value.descEn
+  aiController?.abort()
+  aiController = new AbortController()
+  isGenerating.value = false
+  aiVersions.value = []
+  aiModalOpen.value = true
+  void generateAIDesc()
+}
+
+const closeAiDescModal = () => {
+  aiSession += 1
+  aiController?.abort()
+  aiController = null
+  activeCourse.value.descTh = aiDraftTh.value
+  activeCourse.value.descEn = aiDraftEn.value
+  aiModalOpen.value = false
+  aiVersions.value = []
+  isGenerating.value = false
+}
+
+const handleAiModalOpen = (open: boolean) => {
+  if (open) aiModalOpen.value = true
+  else closeAiDescModal()
+}
+
+const describeAiError = (err: any) => {
+  const status = err?.statusCode ?? err?.status ?? err?.response?.status
+  if (status === 502 || status === 504) {
+    return 'AI ใช้เวลานานเกินกำหนด (โมเดลอาจกำลังโหลดหรือเครื่องทำงานหนัก) กรุณารอสักครู่แล้วกด “ให้ AI ร่าง” อีกครั้ง'
+  }
+  if (status === 503) return 'บริการ AI ยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง'
+  return err?.data?.detail || err?.message || 'ไม่ทราบสาเหตุ'
+}
 
 const generateAIDesc = async () => {
   if (!activeCourse.value.nameTh && !activeCourse.value.nameEn) {
     alert('กรุณากรอกชื่อวิชาภาษาไทยหรืออังกฤษก่อน เพื่อให้ AI นำไปร่างคำอธิบายได้')
     return
   }
-  
+  // กันการกดซ้ำระหว่างรอ: การ abort ฝั่ง browser ไม่ได้หยุดงานที่ Ollama
+  // ถ้าส่งคำขอใหม่ งานจะไปต่อคิวและทำให้รอนานขึ้น
+  if (isGenerating.value) return
+  if (!aiController) aiController = new AbortController()
+  const controller = aiController
+  const session = aiSession
   isGenerating.value = true
-  showAIPreview.value = false
-  
-  // 🛠️ TO BACKEND: จุดยิง API ไปหา AI
-  setTimeout(() => {
-    aiDraftTh.value = `หลักการและทฤษฎีเบื้องต้นของ ${activeCourse.value.nameTh} องค์ประกอบและการทำงาน การวิเคราะห์และการประยุกต์ใช้งานเชิงวิศวกรรม`
-    aiDraftEn.value = `Fundamental principles and theory of ${activeCourse.value.nameEn || 'the subject'}; analytical methods and engineering applications.`
-    
-    isGenerating.value = false
-    showAIPreview.value = true // เปิดกล่องพรีวิวเมื่อเจนเสร็จ
-  }, 1200)
+
+  try {
+    const res = await $fetch<any>(`${API_BASE}/ai/generate/course-description`, {
+      method: 'POST',
+      signal: controller.signal,
+      body: {
+        target: 'course_description',
+        language: 'both',
+        context: {
+          course_name: activeCourse.value.nameTh || activeCourse.value.nameEn,
+          course_code: activeCourse.value.code,
+          credits: `${activeCourse.value.cTotal || 0}(${activeCourse.value.cLec || 0}-${activeCourse.value.cLab || 0}-${activeCourse.value.cSelf || 0})`,
+          current_desc_th: aiDraftTh.value,
+          current_desc_en: aiDraftEn.value,
+          instruction: aiDraftTh.value || aiDraftEn.value
+            ? 'กรุณานำ keywords หรือเนื้อหาเบื้องต้นที่ให้ไว้ มาขยายความและร่างเป็นคำอธิบายรายวิชาที่สมบูรณ์และเป็นทางการ'
+            : 'กรุณาร่างคำอธิบายรายวิชาโดยอิงจากชื่อวิชาและหน่วยกิตที่ให้ไว้'
+        }
+      }
+    })
+
+    if (controller.signal.aborted || session !== aiSession) return
+    if (res && res.result) {
+      aiVersions.value.unshift({
+        id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        th: res.result.th || '',
+        en: res.result.en || '',
+        createdAt: Date.now()
+      })
+    }
+  } catch (err: any) {
+    if (!controller.signal.aborted) {
+      console.error('AI Error:', err)
+      alert('AI ร่างคำอธิบายไม่สำเร็จ: ' + describeAiError(err))
+    }
+  } finally {
+    if (session === aiSession && !controller.signal.aborted) isGenerating.value = false
+  }
 }
 
-const applyAIDraft = () => {
-  activeCourse.value.descTh = aiDraftTh.value
-  activeCourse.value.descEn = aiDraftEn.value
-  showAIPreview.value = false // ปิดกล่องหลังใช้
+const applyAIDraft = (version: any) => {
+  activeCourse.value.descTh = version.th || ''
+  activeCourse.value.descEn = version.en || ''
+  aiDraftTh.value = version.th || ''
+  aiDraftEn.value = version.en || ''
 }
 
-const cancelAIDraft = () => {
-  showAIPreview.value = false // ปิดกล่องโดยไม่เปลี่ยนแปลงอะไร
-}
-
-// === 🛠️ TO BACKEND: ฟังก์ชันสำหรับบันทึกข้อมูลเข้า Database ===
+// === 🛠️ บันทึกข้อมูลเข้า MariaDB Database (POST / PUT) ===
 const saveCourse = async () => {
   if (!activeCourse.value.code.trim() || !activeCourse.value.nameTh.trim()) {
     alert('กรุณากรอกรหัสวิชาและชื่อวิชา')
@@ -131,19 +232,15 @@ const saveCourse = async () => {
     return
   }
 
-  if (l + p !== t) {
-    alert(`หน่วยกิตไม่สอดคล้องกัน!\nผลรวมของ ทฤษฎี (${l}) + ปฏิบัติ (${p}) ต้องเท่ากับหน่วยกิตรวม (${t})`)
-    return
-  }
-
   const payload = {
-    course_id: activeCourse.value.code.trim(),
+    id: activeCourse.value.code.trim(),
     name_th: activeCourse.value.nameTh.trim(),
     name_en: activeCourse.value.nameEn.trim(),
+    credits: `${t}(${l}-${p}-${s})`,
     credit_total: t,
     credit_lecture: l,
     credit_lab: p,
-    credit_self: s,
+    credit_selfstudy: s,
     prerequisites: activeCourse.value.pre,
     corequisites: activeCourse.value.co,
     description_th: activeCourse.value.descTh.trim(),
@@ -151,19 +248,43 @@ const saveCourse = async () => {
   }
 
   try {
-    const creditString = `${payload.credit_total}(${payload.credit_lecture}-${payload.credit_lab}-${payload.credit_self})`
-    
     if (modalMode.value === 'add') {
-      if (courses.value.some(c => c.code === payload.course_id)) { alert('รหัสวิชานี้มีอยู่ในคลังแล้ว'); return }
-      courses.value.unshift({ code: payload.course_id, nameTh: payload.name_th, nameEn: payload.name_en, credits: creditString, pre: payload.prerequisites, co: payload.corequisites, by: 'User', descTh: payload.description_th, descEn: payload.description_en })
+      await $fetch(`${API_BASE}/courses/`, {
+        method: 'POST',
+        body: payload
+      })
+      alert('บันทึกรายวิชาลงฐานข้อมูลสำเร็จ!')
     } else {
-      const idx = courses.value.findIndex(c => c.code === payload.course_id)
-      if (idx !== -1) courses.value[idx] = { ...courses.value[idx], nameTh: payload.name_th, nameEn: payload.name_en, credits: creditString, pre: payload.prerequisites, co: payload.corequisites, descTh: payload.description_th, descEn: payload.description_en }
+      await $fetch(`${API_BASE}/courses/${payload.id}`, {
+        method: 'PUT',
+        body: payload
+      })
+      alert('อัปเดตข้อมูลรายวิชาสำเร็จ!')
     }
     
+    // รีเฟรชรายการรายวิชาจากฐานข้อมูลทันที
+    await fetchCourses()
     isModalOpen.value = false
-  } catch (err) {
-    alert('ไม่สามารถบันทึกข้อมูลได้')
+  } catch (err: any) {
+    console.error('Save error:', err)
+    alert('ไม่สามารถบันทึกข้อมูลได้: ' + (err?.data?.detail || err.message))
+  }
+}
+
+// === 🗑️ ลบรายวิชาออกจาก MariaDB Database (DELETE) ===
+const deleteCourse = async () => {
+  if (!confirm(`คุณต้องการลบรายวิชา ${activeCourse.value.code} ออกจากฐานข้อมูลหรือไม่?`)) return
+
+  try {
+    await $fetch(`${API_BASE}/courses/${activeCourse.value.code}`, {
+      method: 'DELETE'
+    })
+    alert('ลบรายวิชาสำเร็จ!')
+    await fetchCourses()
+    isModalOpen.value = false
+  } catch (err: any) {
+    console.error('Delete error:', err)
+    alert('ไม่สามารถลบข้อมูลได้: ' + (err?.data?.detail || err.message))
   }
 }
 </script>
@@ -199,7 +320,7 @@ const saveCourse = async () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-if="filteredCourses.length === 0"><td colspan="6" class="empty-cell">ไม่พบข้อมูลรายวิชา</td></tr>
+          <tr v-if="filteredCourses.length === 0"><td colspan="6" class="empty-cell">{{ isLoading ? 'กำลังโหลดข้อมูลจากฐานข้อมูล...' : 'ไม่พบข้อมูลรายวิชา' }}</td></tr>
           <tr v-for="c in filteredCourses" :key="c.code" @click="openEditModal(c)" class="data-row">
             <td class="code-col">{{ c.code }}</td>
             <td>
@@ -215,10 +336,9 @@ const saveCourse = async () => {
       </table>
     </div>
 
-    <!-- 🟢 Modal: เพิ่ม / แก้ไขรายวิชา -->
+    <!-- Modal: เพิ่ม / แก้ไขรายวิชา -->
     <div v-if="isModalOpen" class="ov">
       <div class="modal custom-scrollbar">
-        <!-- ปุ่มกากบาทปิดหน้าต่างมุมขวาบน -->
         <button class="close-x" @click="isModalOpen = false">✕</button>
 
         <h3 class="modal-title">{{ modalMode === 'add' ? 'เพิ่มรายวิชาเข้าคลังวิชา' : 'แก้ไขรายวิชา' }}</h3>
@@ -289,31 +409,10 @@ const saveCourse = async () => {
 
         <div class="ai-header">
           <label class="form-label" style="margin: 0;">คำอธิบายรายวิชา (Course Description)</label>
-          <button type="button" class="ai" @click="generateAIDesc" :disabled="isGenerating">
-            <UIcon v-if="isGenerating" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
-            <UIcon v-else name="i-heroicons-sparkles" class="w-4 h-4" />
-            <span>{{ isGenerating ? 'กำลังร่างเนื้อหา...' : 'ให้ AI ร่างคำอธิบาย' }}</span>
+          <button type="button" class="ai" title="AI รันบนเครื่องนี้ อาจใช้เวลา 1–5 นาที (ครั้งแรกอาจนานกว่า)" @click="openAiDescModal">
+            <UIcon name="i-heroicons-sparkles" class="w-4 h-4" />
+            <span>ให้ AI ร่างคำอธิบาย</span>
           </button>
-        </div>
-
-        <!-- 🌟 กล่อง Preview แสดงผลร่างจาก AI (แก้ไขข้อความได้ก่อนกดใช้) -->
-        <div v-if="showAIPreview" class="ai-preview-box">
-          <div class="text-[14px] font-semibold text-[var(--acc)] mb-3 flex items-center gap-1.5">
-            <UIcon name="i-heroicons-sparkles" class="w-4 h-4" /> ตัวอย่างร่างจาก AI (สามารถพิมพ์แก้ไขได้ก่อนกดใช้งาน)
-          </div>
-          
-          <span class="sub-label text-[var(--acc)] font-medium">คำอธิบายภาษาไทย (แก้ไขได้):</span>
-          <textarea v-model="aiDraftTh" class="in desc-box mb-3" style="background: #fff; min-height: 80px; border-color: var(--line) !important;"></textarea>
-          
-          <span class="sub-label text-[var(--acc)] font-medium">คำอธิบายภาษาอังกฤษ (แก้ไขได้):</span>
-          <textarea v-model="aiDraftEn" class="in desc-box mb-2" style="background: #fff; min-height: 80px; border-color: var(--line) !important;"></textarea>
-          
-          <div class="flex gap-2 justify-end mt-2 pt-3 border-t border-[var(--acc)] border-opacity-20">
-            <button class="btn" style="padding: 5px 12px; font-size: 13px;" @click="cancelAIDraft">ยกเลิก</button>
-            <button class="btn p" style="padding: 5px 12px; font-size: 13px;" @click="applyAIDraft">
-              <UIcon name="i-heroicons-check" class="w-4 h-4 mr-1 inline-block" /> ใช้คำอธิบายนี้
-            </button>
-          </div>
         </div>
 
         <div class="form-row mt-2">
@@ -325,12 +424,41 @@ const saveCourse = async () => {
           <textarea v-model="activeCourse.descEn" class="in desc-box" placeholder="Enter course description in English..."></textarea>
         </div>
 
-        <!-- ปุ่มบันทึก -->
+        <!-- ปุ่มบันทึก และ ลบ -->
         <div class="modal-acts">
-          <button class="btn p w-full" style="padding: 12px; font-size: 15px;" @click="saveCourse">บันทึกข้อมูลรายวิชา</button>
+          <button v-if="modalMode === 'edit'" class="btn" style="color: #ef4444; border-color: #fca5a5;" @click="deleteCourse">ลบรายวิชานี้</button>
+          <button class="btn p flex-1" style="padding: 12px; font-size: 15px;" @click="saveCourse">บันทึกข้อมูลรายวิชา</button>
         </div>
       </div>
     </div>
+
+    <AiAssistModal
+      :open="aiModalOpen"
+      title="AI ช่วยร่างคำอธิบายรายวิชา"
+      left-title="คำอธิบายปัจจุบัน"
+      right-title="ฉบับร่างจาก AI"
+      :loading="isGenerating"
+      :versions="aiVersions"
+      @update:open="handleAiModalOpen"
+      @generate="generateAIDesc"
+      @apply="applyAIDraft"
+    >
+      <template #left>
+        <label class="ai-course-label">คำอธิบายภาษาไทย</label>
+        <textarea v-model="aiDraftTh" class="ai-course-textarea" rows="8" placeholder="ระบุคำอธิบายรายวิชาภาษาไทย..." />
+        <label class="ai-course-label mt-3">Course Description (English)</label>
+        <textarea v-model="aiDraftEn" class="ai-course-textarea" rows="8" placeholder="Enter course description in English..." />
+        <p class="ai-course-hint">ข้อความด้านซ้ายจะถูกส่งให้ AI ใช้เป็น keywords และจะถูกบันทึกกลับเมื่อปิดหน้าต่าง</p>
+      </template>
+      <template #version="{ version }">
+        <div class="ai-course-version">
+          <b>ภาษาไทย</b>
+          <div>{{ version.th || '—' }}</div>
+          <b class="mt-3">English</b>
+          <div>{{ version.en || '—' }}</div>
+        </div>
+      </template>
+    </AiAssistModal>
 
   </div>
 </template>
@@ -347,6 +475,13 @@ const saveCourse = async () => {
 .empty-cell { text-align: center; padding: 36px !important; color: var(--mute); font-size: 14px; }
 .data-row { cursor: pointer; transition: 0.15s; }
 .data-row:hover td { background-color: var(--soft); opacity: 0.8; }
+
+.ai-course-label { display: block; margin-bottom: 6px; color: #4f463c; font-size: 13.5px; font-weight: 600; }
+.ai-course-textarea { width: 100%; min-height: 170px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 11px 12px; color: var(--ink); font-size: 14px; line-height: 1.65; resize: vertical; }
+.ai-course-textarea:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 2px rgba(156, 120, 83, 0.12); }
+.ai-course-hint { margin: 9px 0 0; color: #5f554a; font-size: 12.5px; line-height: 1.55; }
+.ai-course-version { display: flex; flex-direction: column; gap: 3px; }
+.ai-course-version b { color: #4f463c; font-size: 12.5px; }
 
 /* Modal Styles */
 .ov { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
@@ -385,7 +520,7 @@ const saveCourse = async () => {
 
 .desc-box { min-height: 100px; resize: vertical; line-height: 1.55; font-size: 13.5px; margin-bottom: 8px; }
 
-.modal-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px; }
+.modal-acts { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; }
 
 @media (max-width: 640px) {
   .search-wrap { width: 100%; }

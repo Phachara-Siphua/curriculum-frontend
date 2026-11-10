@@ -5,8 +5,40 @@ import { ref, computed } from 'vue'
 const filter = ref('all')
 const searchQuery = ref('')
 
-// 🌟 ดึงข้อมูลจาก Global State
-const curriculums = useCurriculums()
+const API_BASE = useApiBase()
+const demoUser = useDemoUser()
+const { toggleFavorite, isFavoritePending } = useProgramFavorites()
+
+const curriculums = ref<any[]>([])
+const isLoading = ref(false)
+
+const fetchPrograms = async () => {
+  isLoading.value = true
+  try {
+    const data = await $fetch<any[]>(`${API_BASE}/programs/`, {
+      query: { user_id: demoUser.value.id }
+    })
+    curriculums.value = data.map(p => ({
+      id: p.id,
+      name: p.name_th || p.name_en || 'หลักสูตรที่ยังไม่ตั้งชื่อ',
+      progress: p.progress,
+      star: !!p.is_starred,
+      upd: p.updated_at
+        ? new Date(p.updated_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'ไม่ทราบ',
+      type: p.curriculum_type === 'revision' ? 'rev' : 'new'
+    }))
+  } catch (err) {
+    console.error('Failed to load programs:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchPrograms()
+})
+
 
 const filteredCurriculums = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -17,10 +49,9 @@ const filteredCurriculums = computed(() => {
   })
 })
 
-// ฟังก์ชัน Toggle ติดดาว
-const toggleStar = (id: number) => {
-  const target = curriculums.value.find(c => c.id === id)
-  if (target) target.star = !target.star
+// ฟังก์ชัน Toggle ติดดาว — บันทึกผ่าน API favorites เดิมของ backend
+const toggleStar = async (program: any) => {
+  await toggleFavorite(program)
 }
 </script>
 
@@ -44,8 +75,21 @@ const toggleStar = (id: number) => {
       <button class="chip" :class="{ on: filter === 'new' }" @click="filter = 'new'">หลักสูตรใหม่</button>
     </div>
 
+    <!-- Loading / Empty State -->
+    <div v-if="isLoading" class="empty-state">
+      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-[#9C7853] animate-spin mb-2" />
+      <p class="text-[#6f6961] text-[14px]">กำลังโหลดรายการหลักสูตร...</p>
+    </div>
+
+    <div v-else-if="filteredCurriculums.length === 0" class="empty-state">
+      <UIcon name="i-heroicons-document-text" class="w-10 h-10 text-[#6f6961] mb-2" />
+      <p class="text-[#6f6961] text-[14px]">
+        {{ searchQuery ? 'ไม่พบหลักสูตรที่ตรงกับคำค้นหา' : 'ยังไม่มีหลักสูตรในระบบ' }}
+      </p>
+    </div>
+
     <!-- Grid แสดงไฟล์หลักสูตร -->
-    <div class="grid">
+    <div v-else class="grid">
       <div v-for="c in filteredCurriculums" :key="c.id" class="card-box">
         <button class="card" :class="{ st: c.star }" @click="$router.push(`/curriculum/${c.id}?type=${c.type}`)">
           <div class="thumb text-[#9C7853]">ใหม่</div>
@@ -59,7 +103,13 @@ const toggleStar = (id: number) => {
           </div>
         </button>
         <!-- 🌟 กดติดดาว -->
-        <button class="star-btn" :class="{ on: c.star }" @click.stop="toggleStar(c.id)">
+        <button
+          class="star-btn"
+          :class="{ on: c.star, loading: isFavoritePending(c.id) }"
+          :disabled="isFavoritePending(c.id)"
+          :aria-label="c.star ? 'เอาดาวออก' : 'ติดดาวหลักสูตรนี้'"
+          @click.stop="toggleStar(c)"
+        >
           <UIcon :name="c.star ? 'i-heroicons-star-solid' : 'i-heroicons-star'" class="w-4 h-4" />
         </button>
       </div>
@@ -90,8 +140,13 @@ const toggleStar = (id: number) => {
 .bar { height: 6px; border-radius: 3px; background: #ece6dc; overflow: hidden; margin-top: 8px; }
 .bar i { display: block; height: 100%; background: #9C7853; }
 
+.empty-state { text-align: center; padding: 60px 20px; border: 1px dashed #e3dcd1; border-radius: 12px; background: #FFFDFA; margin-top: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
 .star-btn { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid #e3dcd1; background: #FFFDFA; color: #6f6961; display: flex; align-items: center; justify-content: center; transition: 0.15s; z-index: 5; }
 .star-btn:hover { color: #f59e0b; border-color: #f59e0b; }
 .star-btn.on { color: #f59e0b; border-color: #f59e0b; }
+.star-btn:disabled { opacity: 0.6; cursor: wait; }
+.star-btn.loading :deep(svg) { animation: star-pulse 0.8s ease-in-out infinite; }
+@keyframes star-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.8); } }
 .card.st { border-color: #9C7853; }
 </style>

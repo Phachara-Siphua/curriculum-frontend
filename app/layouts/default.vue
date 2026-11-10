@@ -1,10 +1,16 @@
 <!-- layouts/default.vue -->
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const isNewMenuOpen = ref(false)
+const isBuilder = computed(() => route.path.startsWith('/curriculum/'))
+
+const goHome = () => {
+  if (import.meta.client) window.location.assign('/')
+}
 
 const createNewCurriculum = (type: 'new' | 'rev') => {
   if (type === 'rev') return // 🌟 ถ้าเป็น rev (ปรับปรุง) ให้หยุดการทำงาน ไม่ทำอะไร
@@ -18,7 +24,7 @@ const createNewCurriculum = (type: 'new' | 'rev') => {
   <div class="shell-layout">
     <!-- Top Header -->
     <header class="top-nav">
-      <NuxtLink to="/" class="logo">
+      <NuxtLink to="/" class="logo" @click.prevent="goHome">
         <b>AI-Powered</b> Curriculum Management System
       </NuxtLink>
       <div class="user-profile">
@@ -28,7 +34,7 @@ const createNewCurriculum = (type: 'new' | 'rev') => {
 
     <div class="body-area">
       <!-- Sidebar ทางซ้าย -->
-      <aside class="side-nav">
+      <aside v-if="!isBuilder" class="side-nav">
         
         <!-- 🌟 ปุ่ม + ใหม่ พร้อม Dropdown -->
         <div class="relative" style="margin-bottom: 16px;">
@@ -56,7 +62,7 @@ const createNewCurriculum = (type: 'new' | 'rev') => {
         </div>
 
         <nav class="nav-menu">
-          <NuxtLink to="/" class="nav-btn" active-class="on">
+          <NuxtLink to="/" class="nav-btn" active-class="on" @click.prevent="goHome">
             <UIcon name="i-heroicons-home" class="w-5 h-5" />
             <span>หน้าแรก</span>
           </NuxtLink>
@@ -72,7 +78,7 @@ const createNewCurriculum = (type: 'new' | 'rev') => {
       </aside>
 
       <!-- พื้นที่เนื้อหาหลัก -->
-      <main class="main-content custom-scrollbar">
+      <main class="main-content custom-scrollbar" :class="{ 'builder-route': isBuilder }">
         <slot />
       </main>
     </div>
@@ -110,6 +116,7 @@ const createNewCurriculum = (type: 'new' | 'rev') => {
 .nav-btn.on { background: var(--soft); color: var(--btn); font-weight: 600; }
 
 .main-content { flex: 1; padding: 28px 36px 60px; overflow-y: auto; background: var(--bg); }
+.main-content.builder-route { padding: 0; overflow: hidden; display: flex; }
 
 @media (max-width: 768px) {
   .body-area { flex-direction: column; }
